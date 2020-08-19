@@ -645,6 +645,39 @@ class Pix2PixModel(base_model.BaseModel):
             saved_imgs = (saved_imgs*255).astype(np.uint8)
 
             imsave(output_path, saved_imgs)
+    
+    def run_and_save_RGBD(self, input_, targets, save_path):
+        assert (self.num_input == 3)
+        input_imgs = autograd.Variable(input_.cuda(), requires_grad=False)
+
+        stack_inputs = input_imgs
+
+        prediction_d, pred_confidence = self.netG.forward(stack_inputs)
+        pred_log_d = prediction_d.squeeze(1)
+        pred_d = torch.exp(pred_log_d)
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        for i in range(0, len(targets)):
+
+            output_path = save_path + targets[i].split('/')[-1]
+
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+            saved_img = np.transpose(
+                input_imgs[i, :, :, :].cpu().numpy(), (1, 2, 0))
+
+            pred_d_ref = pred_d.data[i, :, :].cpu().numpy()
+
+            disparity = 1. / pred_d_ref
+            disparity = disparity / np.max(disparity)
+            disparity = np.tile(np.expand_dims(disparity, axis=-1), (1, 1, 3))
+            saved_imgs = np.concatenate((saved_img, disparity), axis=1)
+            saved_imgs = (saved_imgs*255).astype(np.uint8)
+
+            imsave(output_path, saved_imgs)
 
     def switch_to_train(self):
         self.netG.train()
