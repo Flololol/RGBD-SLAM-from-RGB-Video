@@ -1,10 +1,5 @@
 __pycache__/
 *.zip
-data/
-*.pth
 params.txt
 report/report.lof
-.vscode/settings.json
-test_data/
-checkpoints/
-*/mannequinchallenge/*
+/long/*
