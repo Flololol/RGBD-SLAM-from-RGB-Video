@@ -11,7 +11,7 @@ import transformations
 import matplotlib.pyplot as plt
 import struct
 
-def calibrate_scale(x, y, pID):
+def calibrate_scale(x, y, pID, t):
     factors = []
     for i, pt in enumerate(pID):
         if int(pt) == -1: continue
@@ -19,11 +19,14 @@ def calibrate_scale(x, y, pID):
         locY = int(float(y[i]))
         dep = depth[locY, locX]
         idx = np.argwhere(points[:,0]==int(pt))
+        if points[idx.item(), 4] > 3: continue
         globX = points[idx.item(),1:4]
-        dist = np.linalg.norm(tran-globX)
+        dist = np.linalg.norm(t-globX)
         fac = dist/dep
         factors.append(fac)
-    
+    print(np.average(factors))
+    print(np.median(factors))
+    exit()
     return np.average(factors)
 
 def load_raw_float32_image(file_name):
@@ -101,43 +104,43 @@ if __name__ == "__main__":
     print(n_imgs)
 
     points3D = [s.replace("\n", "") for s in open(data_dir+"points3D.txt", "r").readlines()[3:]]
-    points = np.zeros((len(points3D), 4)).astype(float)
+    points = np.zeros((len(points3D), 5)).astype(float)
     for i, line in enumerate(points3D):
         items = line.split(" ")
-        points[i] = [float(items[0]), float(items[1]), float(items[2]), float(items[3])]
+        points[i] = [float(items[0]), float(items[1]), float(items[2]), float(items[3]), float(items[7])]
     
-    if len(imgs) < n_imgs:
-        for i in range(4,len(img), 2):
-            items = img[i].split(" ")
-            name = items[-1]
-            
-            quat = items[1:5]
-            w = quat.pop(0)
-            quat.append(w)
-            R = np.array(transformations.quaternion_matrix(quat))
-            
-            tran = np.array([float(items[5]),float(items[6]),float(items[7])])
-            Translation = np.eye(4)
-            Translation[0:3,3] = tran
-            Tvar = np.linalg.inv(R.dot(Translation))
-            savename = save_dir + name[:-4] + "txt"
-            np.savetxt(savename, Tvar, delimiter= ' ')
+    #if len(imgs) < n_imgs:
+    for i in range(4,len(img), 2):
+        items = img[i].split(" ")
+        name = items[-1]
+        
+        quat = items[1:5]
+        w = quat.pop(0)
+        quat.append(w)
+        R = np.array(transformations.quaternion_matrix(quat))
+        
+        tran = np.array([float(items[5]),float(items[6]),float(items[7])])
+        Translation = np.eye(4)
+        Translation[0:3,3] = tran
+        Tvar = np.linalg.inv(R.dot(Translation))
+        savename = save_dir + name[:-4] + "txt"
+        np.savetxt(savename, Tvar, delimiter= ' ')
 
-            depth = load_raw_float32_image(save_dir+name[:-4]+"raw")
-            depth = resize_to_target(depth, res, suppress_messages=True)
+        depth = load_raw_float32_image(save_dir+name[:-4]+"raw")
+        depth = resize_to_target(depth, res, suppress_messages=True)
 
-            pts3D = img[i+1].split(" ")
-            x = pts3D[::3]
-            y = pts3D[1::3]
-            pID = pts3D[2::3]
-            #calibrate scale
-            scale = calibrate_scale(x, y, pID)
-            depthname = save_dir + name[:-4] + "npy"
-            np.save(depthname, depth * scale)
-            
-            #print(Tvar)
-            
-        print("done convert")
+        pts3D = img[i+1].split(" ")
+        x = pts3D[::3]
+        y = pts3D[1::3]
+        pID = pts3D[2::3]
+        #calibrate scale
+        scale = calibrate_scale(x, y, pID, tran)
+        depthname = save_dir + name[:-4] + "npy"
+        np.save(depthname, depth * scale)
+        
+        #print(Tvar)
+        
+    print("done convert")
 
     #volume = o3d.integration.ScalableTSDFVolume(0.04)
     vol_bnds = np.zeros((3,2))
