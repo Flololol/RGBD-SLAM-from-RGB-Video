@@ -5,4 +5,5 @@ report/report.lof
 /long/*
 .vscode
 
-superpoint/outoputs
+superpoint/outputs
+tsdf/data
