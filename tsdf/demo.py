@@ -11,6 +11,71 @@ import transformations
 import matplotlib.pyplot as plt
 import struct
 
+# testing just for image 1 and image 5 (arbitrary af)
+def calibrate_scale_glob(img, points):
+    # grab required data for 2 images
+    items = img[4].split(" ")
+    name1 = items[-1]
+
+    quat = items[1:5]
+    w = quat.pop(0)
+    quat.append(w)
+    R = np.array(transformations.quaternion_matrix(quat))
+    
+    tran = np.array([float(items[5]),float(items[6]),float(items[7])])
+    Translation = np.eye(4)
+    Translation[0:3,3] = tran
+    Tvar1 = np.linalg.inv(R.dot(Translation))
+
+    items = img[12].split(" ")
+    name2 = items[-1]
+
+    quat = items[1:5]
+    w = quat.pop(0)
+    quat.append(w)
+    R = np.array(transformations.quaternion_matrix(quat))
+    
+    tran = np.array([float(items[5]),float(items[6]),float(items[7])])
+    Translation = np.eye(4)
+    Translation[0:3,3] = tran
+    Tvar2 = np.linalg.inv(R.dot(Translation))
+
+    pts3D = img[5].split(" ")
+    x1 = pts3D[::3]
+    y1 = pts3D[1::3]
+    pID1 = pts3D[2::3]
+
+    pts3D = img[13].split(" ")
+    x2 = pts3D[::3]
+    y2 = pts3D[1::3]
+    pID2 = pts3D[2::3]
+
+    # look for intersections between the two point sets
+
+    matches = set(pID1).intersection(pID2)
+    matches_idx = []
+    for m in matches:
+        id = np.argwhere(points[:,0] == int(m))
+        if len(id) == 0:
+            continue
+        matches_idx.append(id.item())
+    
+    best = np.argmin(points[matches_idx,4]) # pick BESTEST feature point for pair (lowest error)
+
+    depth1 = load_raw_float32_image(save_dir+name1[:-4]+"raw")
+    depth1 = resize_to_target(depth1, res, suppress_messages=True)
+    depth2 = load_raw_float32_image(save_dir+name2[:-4]+"raw")
+    depth2 = resize_to_target(depth2, res, suppress_messages=True)
+
+    # now we have the rigid transform for both camera positions, both depths, and a feature point that is shared between both
+    # now we EASILY compute the perfect global scale, such that both depth images are a perfect fit
+    # this will be the magical scale that makes everything fall into place!
+
+    exit()
+
+    return scale_factor
+
+
 def calibrate_scale(x, y, pID, t):
     factors = []
     for i, pt in enumerate(pID):
@@ -26,7 +91,7 @@ def calibrate_scale(x, y, pID, t):
         factors.append(fac)
     print(np.average(factors))
     print(np.median(factors))
-    exit()
+    # exit()
     return np.average(factors)
 
 def load_raw_float32_image(file_name):
@@ -109,6 +174,8 @@ if __name__ == "__main__":
         items = line.split(" ")
         points[i] = [float(items[0]), float(items[1]), float(items[2]), float(items[3]), float(items[7])]
     
+    scale = calibrate_scale_glob(img, points)
+    
     #if len(imgs) < n_imgs:
     for i in range(4,len(img), 2):
         items = img[i].split(" ")
@@ -134,12 +201,14 @@ if __name__ == "__main__":
         y = pts3D[1::3]
         pID = pts3D[2::3]
         #calibrate scale
-        scale = calibrate_scale(x, y, pID, tran)
+        # scale = calibrate_scale(x, y, pID, tran)
+        # scale = 22
         depthname = save_dir + name[:-4] + "npy"
         np.save(depthname, depth * scale)
         
         #print(Tvar)
-        
+        exit()
+
     print("done convert")
 
     #volume = o3d.integration.ScalableTSDFVolume(0.04)
