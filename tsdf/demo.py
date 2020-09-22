@@ -60,7 +60,20 @@ def calibrate_scale_glob(img, points):
             continue
         matches_idx.append(id.item())
     
-    best = np.argmin(points[matches_idx,4]) # pick BESTEST feature point for pair (lowest error)
+    best = np.argmin(points[matches_idx,4]) # pick BESTEST feature point for pair (lowest error, probably wrong error) TODO:(that error is also not quality of the feature point, it's the error for colmap to place it in the 3d world?)
+    best_pid = points[best,0]
+    # find best point again in pixel coords for both images
+
+    mask_1 = np.where(pID1 == best_pid)
+    mask_2 = np.where(pID2 == best_pid)
+
+    x1_b = x1[mask_1]
+    y1_b = y1[mask_1]
+    x2_b = x2[mask_2]
+    y2_b = y2[mask_2]
+
+    # now camera intrinsics? then we solve for the same depth parameter in 2 equations that place the same point along different axis into the world space -> the intersection (or almost... it's two lines in a 3d space. ez, just find point where they're closest.) gives us the hopefully proper global depth scale
+    
 
     depth1 = load_raw_float32_image(save_dir+name1[:-4]+"raw")
     depth1 = resize_to_target(depth1, res, suppress_messages=True)
@@ -68,7 +81,7 @@ def calibrate_scale_glob(img, points):
     depth2 = resize_to_target(depth2, res, suppress_messages=True)
 
     # now we have the rigid transform for both camera positions, both depths, and a feature point that is shared between both
-    # now we EASILY compute the perfect global scale, such that both depth images are a perfect fit
+    # now we EASILY compute the perfect global scale, such that both depth images are a perfect fit (maybe top 90% der feature points, sollten alle gleich sein..)
     # this will be the magical scale that makes everything fall into place!
 
     exit()
