@@ -3,3 +3,6 @@ __pycache__/
 params.txt
 report/report.lof
 /long/*
+.vscode
+
+superpoint/outoputs
