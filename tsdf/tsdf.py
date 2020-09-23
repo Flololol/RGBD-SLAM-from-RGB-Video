@@ -1,5 +1,6 @@
 import open3d as o3d
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import struct
 
@@ -57,8 +58,8 @@ volume = o3d.integration.ScalableTSDFVolume(
     sdf_trunc = 0.04,
     color_type=o3d.integration.TSDFVolumeColorType.RGB8
 )
-color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down/"
-depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/tsdf/data2/"
+color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
+depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
     
 with np.load(metadata) as meta_colmap:
@@ -67,19 +68,26 @@ with np.load(metadata) as meta_colmap:
     scales = meta_colmap["scales"]
 
 tmp = intrinsics[0]
+a = extrinsics[:,0:3,-1]
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+plt.plot(a[:,0], a[:,1],a[:,2])
+#plt.show()
+#exit()
 print(tmp)
 intr = o3d.camera.PinholeCameraIntrinsic(384, 224, tmp[0], tmp[1], tmp[2], tmp[3])
 extraRow = [0,0,0,1]
 
 for i, ext in enumerate(extrinsics):
     ext = np.vstack((ext, extraRow))
-    fmt = "frame_{:06d}.raw"
-    #color = o3d.io.read_image(color_dir+fmt.format(i)[:-4]+"png")
-    color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt.format(i)))
-    depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt.format(i)))
+    fmt = "frame_{:06d}.png"
+    color = o3d.io.read_image(color_dir+fmt.format(i))
+    #color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt.format(i)))
+    #depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt.format(i)))
+    depth = o3d.io.read_image(depth_dir+fmt.format(i))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth,
-    depth_scale=1., convert_rgb_to_intensity=False)
-    volume.integrate(rgbd, intr, np.linalg.inv(ext))
+    depth_scale=0.1, convert_rgb_to_intensity=False)
+    volume.integrate(rgbd, intr, ext)
 
 
 print("Extract a triangle mesh from the volume and visualize it.")
