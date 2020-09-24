@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import struct
 
 # testing just for image 1 and image 5 (arbitrary af)
-def calibrate_scale_glob(img, points):
+def calibrate_scale_glob(img ,cam_intr, points):
     # grab required data for 2 images
     items = img[4].split(" ")
     name1 = items[-1]
@@ -59,18 +59,29 @@ def calibrate_scale_glob(img, points):
         if len(id) == 0:
             continue
         matches_idx.append(id.item())
-    
-    best = np.argmin(points[matches_idx,4]) # pick BESTEST feature point for pair (lowest error, probably wrong error) TODO:(that error is also not quality of the feature point, it's the error for colmap to place it in the 3d world?)
-    best_pid = points[best,0]
-    # find best point again in pixel coords for both images
 
-    mask_1 = np.where(pID1 == best_pid)
-    mask_2 = np.where(pID2 == best_pid)
+
+    print(cam_intr)
+    exit()
+
+    # for every single match, find the best fitting scale (average after)
+    for i, m_id in enumerate(matches_idx):
+        print('x')
+
+
+    # mask_1 = np.where(pID1 == best_pid)
+    # mask_2 = np.where(pID2 == best_pid)
+    mask_1 = [pID1 == best_pid]
+    mask_2 = [pID2 == best_pid]
+
+    print(np.shape(mask_1))
+    print(mask_1)
 
     x1_b = x1[mask_1]
     y1_b = y1[mask_1]
     x2_b = x2[mask_2]
     y2_b = y2[mask_2]
+
 
     # now camera intrinsics? then we solve for the same depth parameter in 2 equations that place the same point along different axis into the world space -> the intersection (or almost... it's two lines in a 3d space. ez, just find point where they're closest.) gives us the hopefully proper global depth scale
     
@@ -84,7 +95,6 @@ def calibrate_scale_glob(img, points):
     # now we EASILY compute the perfect global scale, such that both depth images are a perfect fit (maybe top 90% der feature points, sollten alle gleich sein..)
     # this will be the magical scale that makes everything fall into place!
 
-    exit()
 
     return scale_factor
 
@@ -179,7 +189,7 @@ if __name__ == "__main__":
     img = open(data_dir+"images.txt", "r").readlines()
     n_imgs = [int(s) for s in img[3].replace(",", "").split() if s.isdigit()][0]
     imgs = [s for s in os.listdir(save_dir) if s.endswith('npy')]
-    print(n_imgs)
+    print("number of images: {}".format(n_imgs))
 
     points3D = [s.replace("\n", "") for s in open(data_dir+"points3D.txt", "r").readlines()[3:]]
     points = np.zeros((len(points3D), 5)).astype(float)
@@ -187,7 +197,7 @@ if __name__ == "__main__":
         items = line.split(" ")
         points[i] = [float(items[0]), float(items[1]), float(items[2]), float(items[3]), float(items[7])]
     
-    scale = calibrate_scale_glob(img, points)
+    # scale = calibrate_scale_glob(img, cam_intr, points)
     
     #if len(imgs) < n_imgs:
     for i in range(4,len(img), 2):
@@ -215,12 +225,12 @@ if __name__ == "__main__":
         pID = pts3D[2::3]
         #calibrate scale
         # scale = calibrate_scale(x, y, pID, tran)
-        # scale = 22
+        scale = 1.0
         depthname = save_dir + name[:-4] + "npy"
         np.save(depthname, depth * scale)
         
         #print(Tvar)
-        exit()
+        # exit()
 
     print("done convert")
 

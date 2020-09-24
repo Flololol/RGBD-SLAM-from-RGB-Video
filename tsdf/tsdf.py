@@ -59,16 +59,24 @@ volume = o3d.integration.ScalableTSDFVolume(
     sdf_trunc = 0.04,
     color_type=o3d.integration.TSDFVolumeColorType.RGB8
 )
+data_dir = "./colmap/"
+
 color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
 depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
-data_dir = "./colmap/"
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
+
+# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+
 fmt = "frame_{:06d}.png"
 
 img = open(data_dir+"images.txt", "r").readlines()
 n_imgs = [int(s) for s in img[3].replace(",", "").split() if s.isdigit()][0]
 print(n_imgs)
+
     
 with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
@@ -77,6 +85,7 @@ with np.load(metadata) as meta_colmap:
 
 scale = scales[:,1].mean()
 print(scale)
+
 tmp = intrinsics[0]
 print("-----------")
 print(extrinsics[0])
