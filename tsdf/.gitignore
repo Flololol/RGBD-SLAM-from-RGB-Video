@@ -1,6 +1,6 @@
 *.png
 *.raw
 *.jpg
+*.ply
 more_data
-colmap
 data2
