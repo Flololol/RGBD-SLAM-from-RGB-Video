@@ -62,34 +62,37 @@ depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
 
-# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
 
 fmt = "frame_{:06d}.png"
+fmt_raw = "frame_{:06d}.raw"
 
 img = open(data_dir+"images.txt", "r").readlines()
 n_imgs = [int(s) for s in img[3].replace(",", "").split() if s.isdigit()][0]
 print("number of images: {}".format(n_imgs))
 
-    
 with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
     extrinsics = meta_colmap["extrinsics"]
     scales = meta_colmap["scales"]
 
 scale = scales[:,1].mean()
-print(scale)
+print("mean scale: {}".format(scale))
+intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
 
 tmp = intrinsics[0]
 print("-----------")
 print(extrinsics[0])
-e = np.array([0,0,1])
+e = -np.array([0,0,1])
 t = extrinsics[:,0:3,-1]
-R = -extrinsics[:,0:3,:-1]
+R = extrinsics[:,0:3,:-1]
 mul = np.array([r.dot(e) for r in R])
 ROT = np.diag([1, -1, -1])
+# mul2 = np.array([ROT.dot(m) for m in mul])
+# mul = mul2
 
 """ with np.load(metad) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
@@ -129,12 +132,13 @@ ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
 ax.set_zlim([-1, 1])
 # plt.show()
-#exit()
-#print(tmp)
-intr = o3d.camera.PinholeCameraIntrinsic(384, 224, tmp[0], tmp[1], tmp[2], tmp[3])
+# exit()
+
+# single image visualization:
 extraRow = [0,0,0,1]
-extrinsics[:,0:3,-1:] *= -1
-depth = o3d.io.read_image(depth_dir+fmt.format(0))
+# extrinsics[:,0:3,:-1] *= 1
+# depth = o3d.io.read_image(depth_dir+fmt.format(0))
+depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
 color = o3d.io.read_image(color_dir+fmt.format(0))
 rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
 
@@ -146,13 +150,22 @@ o3d.io.write_triangle_mesh("single.ply", single)
 #o3d.io.write_point_cloud("single_cld.pcd", ptc)
 volume.reset()
 
+# print("-----------------------------------")
+# print(extrinsics[0,:,:])
+# print(depth)
+# depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
+# print(depth[0,0])
+# print("-----------------------------------")
+# exit()
+
+# full reconstruction
 for i, ext in enumerate(extrinsics):
     ext = np.vstack((ext, extraRow))
     
-    #color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt.format(i)))
-    #depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt.format(i)))
+    # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
+    depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
     #print(color)
-    depth = o3d.io.read_image(depth_dir+fmt.format(i))
+    # depth = o3d.io.read_image(depth_dir+fmt.format(i))
     color = o3d.io.read_image(color_dir+fmt.format(i))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
     volume.integrate(rgbd, intr, ext)
