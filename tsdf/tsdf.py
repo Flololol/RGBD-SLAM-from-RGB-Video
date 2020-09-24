@@ -22,9 +22,7 @@ def load_raw_float32_image(file_name):
         assert d >= 1
         d_from_pixel_size = pixel_size // 4
         if d != d_from_pixel_size:
-            raise Exception(
-                "Incompatible pixel_size(%d) and cv_type(%d)" % (pixel_size, cv_type)
-            )
+            raise Exception("Incompatible pixel_size(%d) and cv_type(%d)" % (pixel_size, cv_type))
         if d > CV_CN_MAX:
             raise Exception("Cannot save image with more than 512 channels")
 
@@ -49,9 +47,7 @@ def resize_to_target(image, target, align=1, suppress_messages=False):
 
     if not suppress_messages:
         print("Resized: %d x %d" % (resized_width, resized_height))
-    image = cv2.resize(
-        image, (resized_width, resized_height), interpolation=cv2.INTER_AREA
-    )
+    image = cv2.resize(image, (resized_width, resized_height), interpolation=cv2.INTER_AREA)
     return image
 
 volume = o3d.integration.ScalableTSDFVolume(
@@ -66,10 +62,10 @@ depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
 
-color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
 
 fmt = "frame_{:06d}.png"
 
@@ -132,7 +128,7 @@ ax.quiver(t[:,0],t[:,1],t[:,2],mul[:,0],mul[:,1],mul[:,2], length=0.5)
 ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
 ax.set_zlim([-1, 1])
-plt.show()
+# plt.show()
 #exit()
 #print(tmp)
 intr = o3d.camera.PinholeCameraIntrinsic(384, 224, tmp[0], tmp[1], tmp[2], tmp[3])
@@ -140,8 +136,7 @@ extraRow = [0,0,0,1]
 extrinsics[:,0:3,-1:] *= -1
 depth = o3d.io.read_image(depth_dir+fmt.format(0))
 color = o3d.io.read_image(color_dir+fmt.format(0))
-rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth,
-    depth_scale=1.0, convert_rgb_to_intensity=False)
+rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
 
 volume.integrate(rgbd, intr, np.vstack((extrinsics[0], extraRow)))
 single = volume.extract_triangle_mesh()
@@ -159,9 +154,11 @@ for i, ext in enumerate(extrinsics):
     #print(color)
     depth = o3d.io.read_image(depth_dir+fmt.format(i))
     color = o3d.io.read_image(color_dir+fmt.format(i))
-    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth,
-    depth_scale=1.0, convert_rgb_to_intensity=False)
-    volume.integrate(rgbd, intr, -ext)
+    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+    volume.integrate(rgbd, intr, ext)
+
+    # if i >= 43:
+    #     break
 
 print("Extract a triangle mesh from the volume and visualize it.")
 mesh = volume.extract_triangle_mesh()
