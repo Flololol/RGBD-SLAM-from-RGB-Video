@@ -66,16 +66,16 @@ depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
 
-# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
 
 fmt = "frame_{:06d}.png"
 
 img = open(data_dir+"images.txt", "r").readlines()
 n_imgs = [int(s) for s in img[3].replace(",", "").split() if s.isdigit()][0]
-print(n_imgs)
+print("number of images: {}".format(n_imgs))
 
     
 with np.load(metadata) as meta_colmap:
@@ -161,8 +161,7 @@ for i, ext in enumerate(extrinsics):
     color = o3d.io.read_image(color_dir+fmt.format(i))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth,
     depth_scale=1.0, convert_rgb_to_intensity=False)
-    volume.integrate(rgbd, intr, -
-ext)
+    volume.integrate(rgbd, intr, -ext)
 
 print("Extract a triangle mesh from the volume and visualize it.")
 mesh = volume.extract_triangle_mesh()
