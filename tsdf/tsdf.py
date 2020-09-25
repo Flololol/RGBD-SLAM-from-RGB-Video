@@ -70,10 +70,6 @@ metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_d
 fmt = "frame_{:06d}.png"
 fmt_raw = "frame_{:06d}.raw"
 
-img = open(data_dir+"images.txt", "r").readlines()
-n_imgs = [int(s) for s in img[3].replace(",", "").split() if s.isdigit()][0]
-print("number of images: {}".format(n_imgs))
-
 with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
     extrinsics = meta_colmap["extrinsics"]
