@@ -167,8 +167,8 @@ for i, ext in enumerate(extrinsics):
     # ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
-    # if i >= 55:
-    #     break
+    if i >= 10:
+        break
 
 print("Extract a triangle mesh from the volume and visualize it.")
 mesh = volume.extract_triangle_mesh()
