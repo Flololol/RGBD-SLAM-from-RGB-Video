@@ -93,6 +93,7 @@ extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
 for i in range(extrinsics.shape[0]):
     extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
     extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
+    # extrinsics[i,3,3] = -extrinsics[i,3,3]
     # extrinsics[i,:3,:3] = -extrinsics[i,:3,:3]
     # extrinsics[i,:3,3] = -extrinsics[i,:3,3]
     # extrinsics[i] = np.linalg.inv(extrinsics[i])
@@ -167,7 +168,7 @@ for i, ext in enumerate(extrinsics):
     # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
     # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
     depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
-    depth = abs(depth-1)
+    depth = abs(depth-1)*0.1
     depth = o3d.geometry.Image(depth)
     #print(color)
     # depth = o3d.io.read_image(depth_dir+fmt.format(i))
@@ -176,8 +177,8 @@ for i, ext in enumerate(extrinsics):
     # ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
-    if i >= 10:
-        break
+    # if i >= 10:
+    #     break
 
 print("Extract a triangle mesh from the volume and visualize it.")
 mesh = volume.extract_triangle_mesh()
