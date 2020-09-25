@@ -97,7 +97,7 @@ for i in range(extrinsics.shape[0]):
     # extrinsics[i] = np.linalg.inv(extrinsics[i])
     cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
     cam_loc[i] /= cam_loc[i,3]
-    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.9,1]))
+    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.2,1]))
     point_cloud[i] /= point_cloud[i,3]
 
 print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
