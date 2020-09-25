@@ -82,7 +82,6 @@ with np.load(metadata) as meta_colmap:
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
 intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
-extraRow = [0,0,0,1]
 
 print("-----------")
 print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
@@ -93,21 +92,22 @@ point_cloud = np.empty((np.shape(extrinsics)[0], 4))
 extr_shape = (extrinsics.shape[0], 4, 4)
 extrinsics = np.resize(extrinsics, extr_shape)
 for i in range(extrinsics.shape[0]):
-    extrinsics[i,:3,:-1] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
-    extrinsics[i,:3,-1] = COL.dot(extrinsics[i,:3,3])
+    extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
+    extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
     # extrinsics[i] = np.linalg.inv(extrinsics[i])
     cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
-    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,1,1]))
     cam_loc[i] /= cam_loc[i,3]
+    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.9,1]))
     point_cloud[i] /= point_cloud[i,3]
 
 print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx')
 ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
-ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
+ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx')
+ax.plot(point_cloud[:,0], point_cloud[:,1], point_cloud[:,2], 'bo')
+# ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
 ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
 ax.set_zlim([-1, 1])
@@ -115,7 +115,7 @@ ax.set_xlabel("X axis")
 ax.set_ylabel("Y axis")
 ax.set_zlabel("Z axis")
 plt.show()
-# exit()
+exit()
 
 # single image visualization:
 # depth = o3d.io.read_image(depth_dir+fmt.format(0))
