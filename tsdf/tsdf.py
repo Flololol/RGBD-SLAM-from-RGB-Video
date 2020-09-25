@@ -90,7 +90,10 @@ COL = np.diag([1, -1, -1])
 cam_loc = np.empty((np.shape(extrinsics)[0], 4))
 point_cloud = np.empty((np.shape(extrinsics)[0], 4))
 extr_shape = (extrinsics.shape[0], 4, 4)
-extrinsics = np.resize(extrinsics, extr_shape)
+extra_row = np.zeros((extrinsics.shape[0],1,4))
+extra_row[:,0,3] = 1
+extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
+# extrinsics.resize(extr_shape)
 for i in range(extrinsics.shape[0]):
     extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
     extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
@@ -115,7 +118,7 @@ ax.set_xlabel("X axis")
 ax.set_ylabel("Y axis")
 ax.set_zlabel("Z axis")
 plt.show()
-exit()
+# exit()
 
 # single image visualization:
 # depth = o3d.io.read_image(depth_dir+fmt.format(0))
