@@ -84,7 +84,7 @@ print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
 COL = np.diag([1, -1, -1])
 
 cam_loc = np.empty((np.shape(extrinsics)[0], 4))
-point_cloud = np.empty((np.shape(extrinsics)[0], 4))
+point_cloud = np.empty((np.shape(extrinsics)[0], 2, 4))
 extr_shape = (extrinsics.shape[0], 4, 4)
 extra_row = np.zeros((extrinsics.shape[0],1,4))
 extra_row[:,0,3] = 1
@@ -93,19 +93,28 @@ extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
 for i in range(extrinsics.shape[0]):
     extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
     extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
+    # extrinsics[i,:3,:3] = -extrinsics[i,:3,:3]
+    # extrinsics[i,:3,3] = -extrinsics[i,:3,3]
     # extrinsics[i] = np.linalg.inv(extrinsics[i])
+
+
     cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
     cam_loc[i] /= cam_loc[i,3]
-    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.2,1]))
-    point_cloud[i] /= point_cloud[i,3]
+    point_cloud[i,0] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.2,1]))
+    point_cloud[i,0] /= point_cloud[i,0,3]
+    point_cloud[i,1] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.8,1]))
+    point_cloud[i,1] /= point_cloud[i,1,3]
 
 print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
-ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx')
-ax.plot(point_cloud[:,0], point_cloud[:,1], point_cloud[:,2], 'bo')
+ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
+ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
+ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
+ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
+ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
 # ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
 ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
