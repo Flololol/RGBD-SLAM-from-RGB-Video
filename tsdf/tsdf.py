@@ -82,67 +82,64 @@ with np.load(metadata) as meta_colmap:
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
 intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
+extraRow = [0,0,0,1]
 
-tmp = intrinsics[0]
 print("-----------")
-print(extrinsics[0])
-e = -np.array([0,0,1])
-t = extrinsics[:,0:3,-1]
-R = extrinsics[:,0:3,:-1]
-mul = np.array([r.dot(e) for r in R])
-ROT = np.diag([1, -1, -1])
-# mul2 = np.array([ROT.dot(m) for m in mul])
-# mul = mul2
+print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
+COL = np.diag([1, -1, -1])
 
-""" with np.load(metad) as meta_colmap:
-    intrinsics = meta_colmap["intrinsics"]
-    extrinsics = meta_colmap["extrinsics"]
+cam_loc = np.empty((np.shape(extrinsics)[0], 4))
+point_cloud = np.empty((np.shape(extrinsics)[0], 4))
+extr_shape = (extrinsics.shape[0], 4, 4)
+extrinsics = np.resize(extrinsics, extr_shape)
+for i in range(extrinsics.shape[0]):
+    extrinsics[i,:3,:-1] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
+    extrinsics[i,:3,-1] = COL.dot(extrinsics[i,:3,3])
+    # extrinsics[i] = np.linalg.inv(extrinsics[i])
+    cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
+    point_cloud[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,1,1]))
+    cam_loc[i] /= cam_loc[i,3]
+    point_cloud[i] /= point_cloud[i,3]
 
-e = np.array([0,0,1])
-t2 = extrinsics[:,0:3,-1]
-R = extrinsics[:,0:3,:-1]
-mul2 = np.array([-r.dot(e)*1 for r in R])
-
-images = []
-for i in range(4,len(img), 2):
-    items = img[i].split(" ")
-    name = items[-1]
-    
-    quat = np.array([float(s) for s in items[1:5]])
-    tmp = np.array([float(s) for s in items[5:8]]).reshape(1,-1)
-    Rtmp, tmp = load_colmap.quat_to_rot(quat, tmp)
-    ori = -Rtmp.T.dot(e).reshape(1,-1)*-1
-    print(tmp.shape, ori.shape)
-    images.append(np.hstack((tmp.T, ori)))
-images = np.vstack(images)
-print(images.shape) """
-#x, y, z = zip(*t)
-#u, v, w = zip(*R)
-#print(len(x))
+print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.plot(t[:,0], t[:,1],t[:,2])
-ax.quiver(t[:,0],t[:,1],t[:,2],mul[:,0],mul[:,1],mul[:,2], length=0.5)
-#ax.plot(t2[:,0], t2[:,1],t2[:,2])
-#ax.quiver(t2[:,0],t2[:,1],t2[:,2],mul2[:,0],mul2[:,1],mul2[:,2], length=2.0)
-#ax.scatter(images[:,0], images[:,1],images[:,2])
-#ax.quiver(images[:,0],images[:,1],images[:,2],images[:,3],images[:,4],images[:,5], length=0.5)
+ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx')
+ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
+ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
 ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
 ax.set_zlim([-1, 1])
-# plt.show()
+ax.set_xlabel("X axis")
+ax.set_ylabel("Y axis")
+ax.set_zlabel("Z axis")
+plt.show()
 # exit()
 
 # single image visualization:
-extraRow = [0,0,0,1]
-# extrinsics[:,0:3,:-1] *= 1
 # depth = o3d.io.read_image(depth_dir+fmt.format(0))
-depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
+# depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
+depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
+tmpmin = np.min(depth)
+depth = abs(depth-1)+tmpmin
+depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
 rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
 
-volume.integrate(rgbd, intr, np.vstack((extrinsics[0], extraRow)))
+# ext = np.linalg.inv(ext)
+volume.integrate(rgbd, intr, extrinsics[0])
+
+depth = load_raw_float32_image(depth_dir+fmt_raw.format(50))
+tmpmin = np.min(depth)
+depth = abs(depth-1)+tmpmin
+depth = o3d.geometry.Image(depth)
+color = o3d.io.read_image(color_dir+fmt.format(50))
+rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+
+# ext = np.linalg.inv(ext)
+volume.integrate(rgbd, intr, extrinsics[50])
+
 single = volume.extract_triangle_mesh()
 single.compute_vertex_normals()
 o3d.io.write_triangle_mesh("single.ply", single)
@@ -160,17 +157,20 @@ volume.reset()
 
 # full reconstruction
 for i, ext in enumerate(extrinsics):
-    ext = np.vstack((ext, extraRow))
     
     # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
-    depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
+    # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
+    depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
+    depth = abs(depth-1)
+    depth = o3d.geometry.Image(depth)
     #print(color)
     # depth = o3d.io.read_image(depth_dir+fmt.format(i))
     color = o3d.io.read_image(color_dir+fmt.format(i))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+    # ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
-    # if i >= 43:
+    # if i >= 55:
     #     break
 
 print("Extract a triangle mesh from the volume and visualize it.")
