@@ -130,18 +130,16 @@ depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
 rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
 
-# ext = np.linalg.inv(ext)
 volume.integrate(rgbd, intr, extrinsics[0])
 
-depth = load_raw_float32_image(depth_dir+fmt_raw.format(50))
-tmpmin = np.min(depth)
-depth = abs(depth-1)+tmpmin
-depth = o3d.geometry.Image(depth)
-color = o3d.io.read_image(color_dir+fmt.format(50))
-rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+# depth = load_raw_float32_image(depth_dir+fmt_raw.format(50))
+# tmpmin = np.min(depth)
+# depth = abs(depth-1)+tmpmin
+# depth = o3d.geometry.Image(depth)
+# color = o3d.io.read_image(color_dir+fmt.format(50))
+# rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
 
-# ext = np.linalg.inv(ext)
-volume.integrate(rgbd, intr, extrinsics[50])
+# volume.integrate(rgbd, intr, extrinsics[50])
 
 single = volume.extract_triangle_mesh()
 single.compute_vertex_normals()
