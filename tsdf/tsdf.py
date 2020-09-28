@@ -131,13 +131,14 @@ ax.set_zlabel("Z axis")
 # depth = o3d.io.read_image(depth_dir+fmt.format(0))
 # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
 depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
-tmpmin = np.min(depth)
+# tmpmin = np.min(depth)
 tmpmin = 0
 # tmpmin = 0.15
 depth = abs(depth-1)+tmpmin
+depth = depth*scale
 depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
-rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0*scale)
 
 volume.integrate(rgbd, intr, extrinsics[0])
 
@@ -153,6 +154,7 @@ volume.integrate(rgbd, intr, extrinsics[0])
 single = volume.extract_triangle_mesh()
 single.compute_vertex_normals()
 o3d.io.write_triangle_mesh("single.ply", single)
+print("single.ply done.")
 #ptc = volume.extract_voxel_point_cloud()
 #o3d.io.write_point_cloud("single_cld.pcd", ptc)
 volume.reset()
