@@ -51,7 +51,7 @@ def resize_to_target(image, target, align=1, suppress_messages=False):
     return image
 
 volume = o3d.integration.ScalableTSDFVolume(
-    voxel_length = 2.0 / 1024,
+    voxel_length = 2.0 / 512,
     sdf_trunc = 0.04,
     color_type=o3d.integration.TSDFVolumeColorType.RGB8
 )
@@ -89,15 +89,16 @@ extr_shape = (extrinsics.shape[0], 4, 4)
 extra_row = np.zeros((extrinsics.shape[0],1,4))
 extra_row[:,0,3] = 1
 extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
-# extrinsics.resize(extr_shape)
 for i in range(extrinsics.shape[0]):
     extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
     extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
+
+    extrinsics[i] = np.linalg.inv(extrinsics[i])
+
+    # extrinsics[i,:3,:3] = extrinsics[i,:3,:3].T
     # extrinsics[i,3,3] = -extrinsics[i,3,3]
     # extrinsics[i,:3,:3] = -extrinsics[i,:3,:3]
     # extrinsics[i,:3,3] = -extrinsics[i,:3,3]
-    # extrinsics[i] = np.linalg.inv(extrinsics[i])
-
 
     cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
     cam_loc[i] /= cam_loc[i,3]
@@ -123,7 +124,7 @@ ax.set_zlim([-1, 1])
 ax.set_xlabel("X axis")
 ax.set_ylabel("Y axis")
 ax.set_zlabel("Z axis")
-plt.show()
+# plt.show()
 # exit()
 
 # single image visualization:
@@ -131,6 +132,8 @@ plt.show()
 # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
 depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
 tmpmin = np.min(depth)
+tmpmin = 0
+# tmpmin = 0.15
 depth = abs(depth-1)+tmpmin
 depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
@@ -168,22 +171,27 @@ for i, ext in enumerate(extrinsics):
     # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
     # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
     depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
-    depth = abs(depth-1)*0.1
+    # tmpmin = np.min(depth)
+    tmpmin = 0.0
+    # tmpmin = 0.15
+    depth = abs(depth-1)+tmpmin
+    depth = depth*scale
     depth = o3d.geometry.Image(depth)
     #print(color)
     # depth = o3d.io.read_image(depth_dir+fmt.format(i))
     color = o3d.io.read_image(color_dir+fmt.format(i))
-    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
+    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=0.8*scale)
     # ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
     # if i >= 10:
     #     break
 
-print("Extract a triangle mesh from the volume and visualize it.")
+print("Extracting triangle mesh from volume..")
 mesh = volume.extract_triangle_mesh()
 mesh.compute_vertex_normals()
 o3d.io.write_triangle_mesh("mesh.ply", mesh)
+print("done.")
 #ptc = volume.extract_voxel_point_cloud()
 #o3d.io.write_point_cloud("cld.pcd", ptc)
 #o3d.visualization.draw_geometries([mesh], front=[0.5297, -0.1873, -0.8272], lookat=[2.0712, 2.0312, 1.7251], up=[-0.0558, -0.9809, 0.1864], zoom=0.47)
