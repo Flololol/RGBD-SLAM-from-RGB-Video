@@ -1,8 +1,9 @@
 import open3d as o3d
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import struct
+import cv2
 #from utils import load_colmap
 
 def load_raw_float32_image(file_name):
@@ -30,45 +31,37 @@ def load_raw_float32_image(file_name):
         result = data.reshape(h, w) if d == 1 else data.reshape(h, w, d)
         return result
 
-def resize_to_target(image, target, align=1, suppress_messages=False):
-    if not suppress_messages:
-        print("Original size: %d x %d" % (image.shape[1], image.shape[0]))
-
-    resized_height = target[0]
-    resized_width = target[1]
-    if resized_width % align != 0:
-        resized_width = align * round(resized_width / align)
-        if not suppress_messages:
-            print("Rounding width to closest multiple of %d." % align)
-    if resized_height % align != 0:
-        resized_height = align * round(resized_height / align)
-        if not suppress_messages:
-            print("Rounding height to closest multiple of %d." % align)
-
-    if not suppress_messages:
-        print("Resized: %d x %d" % (resized_width, resized_height))
-    image = cv2.resize(image, (resized_width, resized_height), interpolation=cv2.INTER_AREA)
-    return image
+def resize_intrinsics(intrinsics, size_old, size_new):
+    fx, fy, cx, cy = intrinsics[0]
+    ratio = np.array(size_new) / np.array(size_old)
+    fx *= ratio[0]
+    fy *= ratio[1]
+    cx *= ratio[0]
+    cy *= ratio[1]
+    return fx, fy, cx, cy
 
 volume = o3d.integration.ScalableTSDFVolume(
-    voxel_length = 2.0 / 512,
-    sdf_trunc = 0.04,
+    voxel_length = 1.0 / 512,
+    sdf_trunc = 0.1,
     color_type=o3d.integration.TSDFVolumeColorType.RGB8
 )
 data_dir = "./colmap/"
 
-color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
+# color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
+color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
 depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
 
-color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
 
 fmt = "frame_{:06d}.png"
 fmt_raw = "frame_{:06d}.raw"
+size_new = (1280, 720)
+size_old = (384, 224)
 
 with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
@@ -77,7 +70,11 @@ with np.load(metadata) as meta_colmap:
 
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
-intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
+extrinsics[:,:,-1] /= scale
+
+#intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
+fx, fy, cx, cy = resize_intrinsics(intrinsics, size_old, size_new)
+intr = o3d.camera.PinholeCameraIntrinsic(size_new[0], size_new[1], fx, fy, cx, cy)
 
 print("-----------")
 print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
@@ -109,21 +106,21 @@ for i in range(extrinsics.shape[0]):
 
 print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
-ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
-ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
-ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
-ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
-ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
-# ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
-ax.set_xlim([-1, 1])
-ax.set_ylim([-1, 1])
-ax.set_zlim([-1, 1])
-ax.set_xlabel("X axis")
-ax.set_ylabel("Y axis")
-ax.set_zlabel("Z axis")
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
+# ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
+# ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
+# ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
+# ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
+# ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
+# # ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
+# ax.set_xlim([-1, 1])
+# ax.set_ylim([-1, 1])
+# ax.set_zlim([-1, 1])
+# ax.set_xlabel("X axis")
+# ax.set_ylabel("Y axis")
+# ax.set_zlabel("Z axis")
 # plt.show()
 # exit()
 
@@ -131,13 +128,16 @@ ax.set_zlabel("Z axis")
 # depth = o3d.io.read_image(depth_dir+fmt.format(0))
 # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
 depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
+depth = cv2.resize(depth, size_new, interpolation=cv2.INTER_AREA)
 # tmpmin = np.min(depth)
 tmpmin = 0
 # tmpmin = 0.15
 depth = abs(depth-1)+tmpmin
-depth = depth*scale
+# depth = depth*scale
 depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
+print(depth)
+print(color)
 rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0*scale)
 
 volume.integrate(rgbd, intr, extrinsics[0])
@@ -173,11 +173,12 @@ for i, ext in enumerate(extrinsics):
     # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
     # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
     depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
+    depth = cv2.resize(depth, size_new, interpolation=cv2.INTER_AREA)
     # tmpmin = np.min(depth)
     tmpmin = 0.0
     # tmpmin = 0.15
     depth = abs(depth-1)+tmpmin
-    depth = depth*scale
+    # depth = depth*scale
     depth = o3d.geometry.Image(depth)
     #print(color)
     # depth = o3d.io.read_image(depth_dir+fmt.format(i))
