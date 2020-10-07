@@ -1,10 +1,9 @@
 import open3d as o3d
-#import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import struct
-import cv2
-#from utils import load_colmap
+from PIL import Image
 
 def load_raw_float32_image(file_name):
     with open(file_name, "rb") as f:
@@ -72,10 +71,8 @@ scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
 extrinsics[:,:,-1] /= scale
 
-#intr = o3d.camera.PinholeCameraIntrinsic(384, 224, intrinsics[0][0], intrinsics[0][1], intrinsics[0][2], intrinsics[0][3])
 fx, fy, cx, cy = resize_intrinsics(intrinsics, size_old, size_new)
-intr = o3d.camera.PinholeCameraIntrinsic(size_new[0], size_new[1], fx, fy, cx, cy)
-
+intr = o3d.camera.PinholeCameraIntrinsic(*size_new, fx, fy, cx, cy)
 print("-----------")
 print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
 COL = np.diag([1, -1, -1])
@@ -106,29 +103,32 @@ for i in range(extrinsics.shape[0]):
 
 print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
 
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
-# ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
-# ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
-# ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
-# ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
-# ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
-# # ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
-# ax.set_xlim([-1, 1])
-# ax.set_ylim([-1, 1])
-# ax.set_zlim([-1, 1])
-# ax.set_xlabel("X axis")
-# ax.set_ylabel("Y axis")
-# ax.set_zlabel("Z axis")
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
+ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
+ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
+ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
+ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
+ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
+# ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
+ax.set_xlim([-1, 1])
+ax.set_ylim([-1, 1])
+ax.set_zlim([-1, 1])
+ax.set_xlabel("X axis")
+ax.set_ylabel("Y axis")
+ax.set_zlabel("Z axis")
 # plt.show()
 # exit()
 
 # single image visualization:
-# depth = o3d.io.read_image(depth_dir+fmt.format(0))
-# depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(0)))
 depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
-depth = cv2.resize(depth, size_new, interpolation=cv2.INTER_AREA)
+depth = np.array(Image.fromarray(depth).resize(size_new))
+# plt.clf()
+# plt.imshow(depth, cmap='gray')
+# plt.show()
+# exit()
+
 # tmpmin = np.min(depth)
 tmpmin = 0
 # tmpmin = 0.15
@@ -136,9 +136,9 @@ depth = abs(depth-1)+tmpmin
 # depth = depth*scale
 depth = o3d.geometry.Image(depth)
 color = o3d.io.read_image(color_dir+fmt.format(0))
-print(depth)
-print(color)
-rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0*scale)
+# print(depth)
+# print(color)
+rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
 
 volume.integrate(rgbd, intr, extrinsics[0])
 
@@ -170,10 +170,8 @@ volume.reset()
 # full reconstruction
 for i, ext in enumerate(extrinsics):
     
-    # color = o3d.geometry.Image(load_raw_float32_image(color_dir+fmt_raw.format(i)))
-    # depth = o3d.geometry.Image(load_raw_float32_image(depth_dir+fmt_raw.format(i)))
     depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
-    depth = cv2.resize(depth, size_new, interpolation=cv2.INTER_AREA)
+    depth = np.array(Image.fromarray(depth).resize(size_new))
     # tmpmin = np.min(depth)
     tmpmin = 0.0
     # tmpmin = 0.15
@@ -183,7 +181,7 @@ for i, ext in enumerate(extrinsics):
     #print(color)
     # depth = o3d.io.read_image(depth_dir+fmt.format(i))
     color = o3d.io.read_image(color_dir+fmt.format(i))
-    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=0.8*scale)
+    rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
     # ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
