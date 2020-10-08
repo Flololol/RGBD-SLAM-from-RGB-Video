@@ -29,83 +29,120 @@ def load_raw_float32_image(file_name):
         result = data.reshape(h, w) if d == 1 else data.reshape(h, w, d)
         return result
 
-color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
-depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
-metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
-metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
+class pose_refiner:
+    def __init__(self, color_dir, depth_dir, metadata):
+        self.color_dir = color_dir
+        self.depth_dir = depth_dir
+        self.metadata = metadata
 
-fmt = "frame_{:06d}.png"
-fmt_raw = "frame_{:06d}.raw"
-size_new = (1280, 720)
-size_old = (384, 224)
+        with np.load(self.metadata) as meta_colmap:
+            intrinsics = meta_colmap["intrinsics"]
+            self.extrinsics = meta_colmap["extrinsics"]
+            scales = meta_colmap["scales"]
+        intr = intrinsics[0]
+        self.intrinsics = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
+        self.scale = scales[:,1].mean()
+        print("mean scale: {}".format(scale))
 
-with np.load(metadata) as meta_colmap:
-    intrinsics = meta_colmap["intrinsics"]
-    extrinsics = meta_colmap["extrinsics"]
-    scales = meta_colmap["scales"]
-intr = intrinsics[0]
-intr = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
+        extra_row = np.zeros((self.extrinsics.shape[0],1,4))
+        extra_row[:,0,3] = 1
+        self.extrinsics = np.concatenate((self.extrinsics, extra_row), axis=1)
+        for i in range(self.extrinsics.shape[0]):
+            self.extrinsics[i,:3,:3] = COL.dot(self.extrinsics[i,:3,:3]).dot(COL.T)
+            self.extrinsics[i,:3,3] = COL.dot(self.extrinsics[i,:3,3])
 
-extr_shape = (extrinsics.shape[0], 4, 4)
-extra_row = np.zeros((extrinsics.shape[0],1,4))
-extra_row[:,0,3] = 1
-extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
+            self.extrinsics[i,:3,3] = self.extrinsics[i,:3,3]/self.scale
 
-img1 = np.array(Image.open(color_dir + fmt.format(0)))
-dpt1 = load_raw_float32_image(depth_dir+fmt_raw.format(0))
-T1 = extrinsics[0]
-print(T1.shape)
-#comparing frame 0 to 10 for testing
-img2 = np.array(Image.open(color_dir + fmt.format(10)))
-dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(10))
-T2 = extrinsics[10]
-transformed = np.zeros_like(img1)
-print(transformed.shape)
-print(dpt1.shape)
+            self.extrinsics[i] = np.linalg.inv(self.extrinsics[i])
 
-for x in range(size_old[0]):
-    for y in range(size_old[1]):
-        curDepth = dpt1[y, x]
-        curRGB = img1[y, x]
-        # print(curRGB)
-        pos = np.array([x, y, 1])
-        # print(pos)
-        dik = np.linalg.inv(intr).dot(pos) * curDepth
-        dik = np.append(dik, 1)
-        # print(dik)
-        tgt = np.linalg.inv(T2).dot(T1.dot(dik))
-        tgt = np.delete(tgt, 3)
-        # print(tgt)
-        imgPos = intr.dot(tgt)
-        # print(imgPos)
-        imgX = int(imgPos[0])
-        imgY = int(imgPos[1])
-        if imgX > 0 and imgX < img2.shape[1]:
-            if imgY > 0 and imgY < img2.shape[0]:
-                transformed[y, x] = curRGB
-                img2[y, x] = curRGB
-        # exit()
+    def sizes(self, size_old, size_new):
+        self.size_old = size_old
+        self.size_new = size_new
 
-plt.imshow(transformed)
-plt.show()
-plt.imshow(img2)
-plt.show()
-exit()
+    def filter_framepairs(self):
+        pass
 
-def filter_framepairs():
-    pass
+    def photo_energy(self, Ti, Tj, intr, imgI, imgJ):
+        photo = 1
+        return photo
 
-def photo_energy(Ti, Tj, intr, imgI, imgJ):
-    photo = 1
-    return photo
+    def geo_energy(self):
+        return 1
 
-def geo_energy():
-    return 1
+    def total_energy(self, extr, intr, pairs):
+        wgeo = wphoto = 0.5
+        for pair in pairs:
+            Ti = extr[pair[0]]
+            Tj = extr[pair[1]]
+        total = wphoto * photo_energy() + wgeo * geo_energy()
+        return total
 
-def total_energy(extr, intr, pairs):
-    wgeo = wphoto = 0.5
-    for pair in pairs:
-        Ti = extr[pair[0]]
-        Tj = extr[pair[1]]
-    total = wphoto * photo_energy() + wgeo * geo_energy()
-    return total
+if __name__ == "__main__":
+    peter = True
+
+    color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
+    # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
+    depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
+    metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
+    size_new = (384, 224)
+
+    if peter:
+        color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/color_down_png/"
+        # color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/color_full/"
+        depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+        metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug01/R_hierarchical2_mc/metadata_scaled.npz"
+        size_new = (384, 224)
+        # size_new = (1920, 1080)
+
+    size_old = (384, 224)
+
+    refiner = pose_refiner(color_dir, depth_dir, metadata)
+    refiner.sizes(size_old, size_new)
+    
+    refiner.optim()
+
+    result = refiner.extrinsics
+
+    fmt = "frame_{:06d}.png"
+    fmt_raw = "frame_{:06d}.raw"
+
+    img1 = np.array(Image.open(color_dir + fmt.format(0)))
+    dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
+    T1 = refiner.extrinsics[0]
+    print(T1.shape)
+    #comparing frame 0 to 10 for testing
+    img2 = np.array(Image.open(color_dir + fmt.format(10)))
+    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(10))
+    T2 = refiner.extrinsics[10]
+    transformed = np.zeros_like(img1)
+    print(transformed.shape)
+    print(dpt1.shape)
+
+    for x in range(size_old[0]):
+        for y in range(size_old[1]):
+            curDepth = dpt1[y, x]
+            curRGB = img1[y, x]
+            # print(curRGB)
+            pos = np.array([x, y, 1])
+            # print(pos)
+            dik = np.linalg.inv(refiner.intrinsics).dot(pos) * curDepth
+            dik = np.append(dik, 1)
+            # print(dik)
+            tgt = np.linalg.inv(T2).dot(T1.dot(dik))
+            tgt = np.delete(tgt, 3)
+            # print(tgt)
+            imgPos = refiner.intrinsics.dot(tgt)
+            # print(imgPos)
+            imgX = int(imgPos[0])
+            imgY = int(imgPos[1])
+            if imgX > 0 and imgX < img2.shape[1]:
+                if imgY > 0 and imgY < img2.shape[0]:
+                    transformed[y, x] = curRGB
+                    img2[y, x] = curRGB
+            # exit()
+
+    plt.imshow(transformed)
+    plt.show()
+    plt.imshow(img2)
+    plt.show()
+    exit()
