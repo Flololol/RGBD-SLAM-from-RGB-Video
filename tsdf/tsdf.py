@@ -69,7 +69,9 @@ with np.load(metadata) as meta_colmap:
 
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
-extrinsics[:,:,-1] /= scale
+with np.load(metad) as meta_colmap:
+    extrinsics = meta_colmap["extrinsics"]
+extrinsics[:,:,-1] /= scale**2 #warum müssen wir die normalen extrinsics 2 mal durch die scale teilen damit es passt?
 
 fx, fy, cx, cy = resize_intrinsics(intrinsics, size_old, size_new)
 intr = o3d.camera.PinholeCameraIntrinsic(*size_new, fx, fy, cx, cy)
