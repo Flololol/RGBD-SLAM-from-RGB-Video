@@ -74,41 +74,57 @@ class pose_refiner:
                 if y == x+stride:
                     self.pair_mat[y,x] = 1
 
-    def photo_energy(self, y, x, py, px, Ti, Tj, dik):
-        left = self.luminance[y, py, px]
+    def photo_energy(self, i, j, py, px, Ti, Tj, dik):
+        left = self.luminance[i, py, px]
 
         dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        print(dim3[3])
-        dim3 = dim3 / dim3[-1]
         dim3 = dim3[:-1]
         dim2 = self.intrinsics.dot(dim3)
         dim2 = dim2 / dim2[-1]
         dim2 = dim2[:-1]
 
-        right = self.luminance(x, dim2[1], dim2[0])
+        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size_new[0] or dim2[1] > self.size_new[1]):
+            return 0
 
-        energy = left - right
-        energy = np.linalg.norm(energy)
+        right = self.luminance(j, dim2[1], dim2[0])
+
+        energy = np.sum((left - right)**2)
         return energy
 
-    def geo_energy(self, y, x, py, px, Ti, Tj, dik):
-        return 1
+    def geo_energy(self, i, j, py, px, Ti, Tj, dik):
+        normal = self.normals[i, py, px]
+
+        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        dim3_2 = dim3_2[:-1]
+        dim2 = self.intrinsics.dot(dim3_2)
+        dim2 = dim2 / dim2[-1]
+        dim2 = dim2[:-1]
+
+        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size_new[0] or dim2[1] > self.size_new[1]):
+            return 0
+
+        depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2[1], dim2[0]]])
+        dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
+        dim3_2 = np.append(dim3_2, 1)
+
+        energy = ((normal.T).dot(dik - np.linalg.inv(Ti).dot(Tj.dot(dim3_2))))**2
+        return energy
 
     def total_energy(self, extr):
         wgeo = wphoto = 0.5
         egeo = ephoto = 0
-        for y in range(self.N):
-            for x in range(self.N):
-                if self.pair_mat[y,x] != 1:
+        for i in range(self.N):
+            for j in range(self.N):
+                if self.pair_mat[i,j] != 1:
                     continue
-                Ti = extr[y]
-                Tj = extr[x]
-                for px in range(self.size.shape[0]):
-                    for py in range(self.size.shape[1]):
-                        dik = np.linalg.inv(self.intrinsics).dot(np.array([px, py, 1])) * self.depth[y, py, px]
+                Ti = extr[i]
+                Tj = extr[j]
+                for px in range(self.size_new.shape[0]):
+                    for py in range(self.size_new.shape[1]):
+                        dik = np.linalg.inv(self.intrinsics).dot(np.array([px, py, 1])) * self.depth[i, py, px]
                         dik = np.append(dik, 1)
-                        egeo += self.geo_energy(y, x, py, px, Ti, Tj, dik)
-                        ephoto += self.photo_energy(y, x, py, px, Ti, Tj, dik)
+                        egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
+                        ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
 
         total = wphoto * ephoto + wgeo * egeo
         return total
@@ -159,6 +175,8 @@ class pose_refiner:
 
         self.luminance = np.array(lumi)
 
+
+        self.normals = np.zeros((self.N, self.size_new[1], self.size_new[0], 3))
 
     def prepare(self):
         self.load_data()
