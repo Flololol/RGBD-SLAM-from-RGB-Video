@@ -44,23 +44,26 @@ volume = o3d.integration.ScalableTSDFVolume(
     sdf_trunc = 0.1,
     color_type=o3d.integration.TSDFVolumeColorType.RGB8
 )
-data_dir = "./colmap/"
+peter = True
 
 # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
 color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
 depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
 metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
 metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
+size_new = (1280, 720)
 
-# color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-# depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-# metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-# metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
+if peter:
+    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/color_down_png/"
+    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/color_full/"
+    depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+    metadata = "/home/noxx/Documents/projects/consistent_depth/results/room01/R_hierarchical2_mc/metadata_scaled.npz"
+    metad = "/home/noxx/Documents/projects/consistent_depth/results/room01/colmap_dense/metadata.npz"
+    size_new = (1920, 1080)
 
+size_old = (384, 224)
 fmt = "frame_{:06d}.png"
 fmt_raw = "frame_{:06d}.raw"
-size_new = (1280, 720)
-size_old = (384, 224)
 
 with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
@@ -69,16 +72,16 @@ with np.load(metadata) as meta_colmap:
 
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
-with np.load(metad) as meta_colmap:
-    extrinsics = meta_colmap["extrinsics"]
-extrinsics[:,:,-1] /= scale**2 #warum müssen wir die normalen extrinsics 2 mal durch die scale teilen damit es passt?
+# with np.load(metad) as meta_colmap:
+#     extrinsics = meta_colmap["extrinsics"]
+# extrinsics[:,:,-1] /= scale**2 #warum müssen wir die normalen extrinsics 2 mal durch die scale teilen damit es passt?
 
 fx, fy, cx, cy = resize_intrinsics(intrinsics, size_old, size_new)
 intr = o3d.camera.PinholeCameraIntrinsic(*size_new, fx, fy, cx, cy)
 print("-----------")
 print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
-COL = np.diag([1, -1, -1])
 
+COL = np.diag([1, -1, -1])
 cam_loc = np.empty((np.shape(extrinsics)[0], 4))
 point_cloud = np.empty((np.shape(extrinsics)[0], 2, 4))
 extr_shape = (extrinsics.shape[0], 4, 4)
@@ -89,12 +92,9 @@ for i in range(extrinsics.shape[0]):
     extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
     extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
 
-    extrinsics[i] = np.linalg.inv(extrinsics[i])
+    extrinsics[i,:3,3] = extrinsics[i,:3,3]/scale
 
-    # extrinsics[i,:3,:3] = extrinsics[i,:3,:3].T
-    # extrinsics[i,3,3] = -extrinsics[i,3,3]
-    # extrinsics[i,:3,:3] = -extrinsics[i,:3,:3]
-    # extrinsics[i,:3,3] = -extrinsics[i,:3,3]
+    extrinsics[i] = np.linalg.inv(extrinsics[i])
 
     cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
     cam_loc[i] /= cam_loc[i,3]
