@@ -41,6 +41,7 @@ class pose_refiner:
             scales = meta_colmap["scales"]
         intr = intrinsics[0]
         self.intrinsics = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
+        # self.intrinsics = np.linalg.inv(self.intrinsics)
         self.scale = scales[:,1].mean()
         print("mean scale: {}".format(self.scale))
 
@@ -54,10 +55,15 @@ class pose_refiner:
 
             self.extrinsics[i,:3,3] = self.extrinsics[i,:3,3]/self.scale
 
-            self.extrinsics[i] = np.linalg.inv(self.extrinsics[i])
+            # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
 
         self.N = self.extrinsics.shape[0]
+
         self.pair_mat = None
+        self.depth = None
+        self.RGB = None
+        self.luminance = None
+        self.normals = None
 
     def sizes(self, size_old, size_new):
         self.size_old = size_old
@@ -70,29 +76,61 @@ class pose_refiner:
                 if y == x+stride:
                     self.pair_mat[y,x] = 1
 
-    def photo_energy(self, Ti, Tj, intr, imgI, imgJ):
-        photo = 1
-        return photo
+    def photo_energy(self, y, x, py, px, Ti, Tj, dik):
+        left = self.luminance[y, py, px]
 
-    def geo_energy(self):
+        dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        print(dim3[3])
+        dim3 = dim3 / dim3[-1]
+        dim3 = dim3[:-1]
+        dim2 = self.intrinsics.dot(dim3)
+        dim2 = dim2 / dim2[-1]
+        dim2 = dim2[:-1]
+
+        right = self.luminance(x, dim2[1], dim2[0])
+
+        energy = left - right
+        energy = np.linalg.norm(energy)
+        return energy
+
+    def geo_energy(self, y, x, py, px, Ti, Tj, dik):
         return 1
 
     def total_energy(self, extr):
-        total = 0
         wgeo = wphoto = 0.5
+        egeo = ephoto = 0
         for y in range(self.N):
             for x in range(self.N):
                 if self.pair_mat[y,x] != 1:
                     continue
                 Ti = extr[y]
                 Tj = extr[x]
-        # total = wphoto * photo_energy() + wgeo * geo_energy()
+                for px in range(self.size_new.shape[0]):
+                    for py in range(self.size_new.shape[1]):
+                        dik = np.linalg.inv(self.intrinsics).dot(np.array([px, py, 1])) * self.depth[y, py, px]
+                        dik = np.append(dik, 1)
+                        egeo += self.geo_energy(y, x, py, px, Ti, Tj, dik)
+                        ephoto += self.photo_energy(y, x, py, px, Ti, Tj, dik)
+
+        total = wphoto * ephoto + wgeo * egeo
         return total
-    
+
+    def load_data(self):
+        self.depth = 0
+        self.RGB = 0
+
+    def preprocess_data(self):
+        self.luminance = np.zeros((self.N, self.size_new[1], self.size_new[0], 2))
+
+    def prepare(self):
+        self.load_data()
+        self.preprocess_data()
+        self.filter_framepairs()
+
     def optim(self):
         minimize(self.total_energy, self.extrinsics, method='Newton-CG')
 
-stride = 5
+stride = 10
 if __name__ == "__main__":
     peter = True
 
@@ -103,10 +141,10 @@ if __name__ == "__main__":
     size_new = (384, 224)
 
     if peter:
-        color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/color_down_png/"
-        # color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/color_full/"
-        depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug01/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-        metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug01/R_hierarchical2_mc/metadata_scaled.npz"
+        color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+        # color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_full/"
+        depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+        metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
         size_new = (384, 224)
         # size_new = (1920, 1080)
 
@@ -115,7 +153,7 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.sizes(size_old, size_new)
     
-    # refiner.optim()
+    # refiner.prepare()
 
     result = refiner.extrinsics
 
@@ -124,6 +162,7 @@ if __name__ == "__main__":
 
     img1 = np.array(Image.open(color_dir + fmt.format(0)))
     dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
+    dpt1 = abs(dpt1-1)
     T1 = refiner.extrinsics[0]
     print(T1.shape)
     #comparing frame 0 to stride for testing
@@ -142,19 +181,21 @@ if __name__ == "__main__":
             pos = np.array([x, y, 1])
             # print(pos)
             dik = np.linalg.inv(refiner.intrinsics).dot(pos) * curDepth
+            # dik /= dik[-1]
             dik = np.append(dik, 1)
             # print(dik)
             tgt = np.linalg.inv(T2).dot(T1.dot(dik))
             tgt = np.delete(tgt, 3)
             # print(tgt)
             imgPos = refiner.intrinsics.dot(tgt)
+            imgPos = imgPos / imgPos[-1]
             # print(imgPos)
             imgX = int(imgPos[0])
             imgY = int(imgPos[1])
             if imgX > 0 and imgX < img2.shape[1]:
                 if imgY > 0 and imgY < img2.shape[0]:
-                    transformed[y, x] = curRGB
-                    img2[y, x] = curRGB
+                    transformed[imgY, imgX] = curRGB
+                    img2[imgY, imgX] = curRGB
             # exit()
 
     plt.imshow(transformed)
