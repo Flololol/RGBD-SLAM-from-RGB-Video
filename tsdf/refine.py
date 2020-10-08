@@ -42,8 +42,9 @@ class pose_refiner:
         intr = intrinsics[0]
         self.intrinsics = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
         self.scale = scales[:,1].mean()
-        print("mean scale: {}".format(scale))
+        print("mean scale: {}".format(self.scale))
 
+        COL = np.diag([1, -1, -1])
         extra_row = np.zeros((self.extrinsics.shape[0],1,4))
         extra_row[:,0,3] = 1
         self.extrinsics = np.concatenate((self.extrinsics, extra_row), axis=1)
@@ -55,12 +56,19 @@ class pose_refiner:
 
             self.extrinsics[i] = np.linalg.inv(self.extrinsics[i])
 
+        self.N = self.extrinsics.shape[0]
+        self.pair_mat = None
+
     def sizes(self, size_old, size_new):
         self.size_old = size_old
         self.size_new = size_new
 
     def filter_framepairs(self):
-        pass
+        self.pair_mat = np.zeros((self.N, self.N))
+        for y in range(self.N):
+            for x in range(self.N):
+                if y == x+stride:
+                    self.pair_mat[y,x] = 1
 
     def photo_energy(self, Ti, Tj, intr, imgI, imgJ):
         photo = 1
@@ -69,14 +77,22 @@ class pose_refiner:
     def geo_energy(self):
         return 1
 
-    def total_energy(self, extr, intr, pairs):
+    def total_energy(self, extr):
+        total = 0
         wgeo = wphoto = 0.5
-        for pair in pairs:
-            Ti = extr[pair[0]]
-            Tj = extr[pair[1]]
-        total = wphoto * photo_energy() + wgeo * geo_energy()
+        for y in range(self.N):
+            for x in range(self.N):
+                if self.pair_mat[y,x] != 1:
+                    continue
+                Ti = extr[y]
+                Tj = extr[x]
+        # total = wphoto * photo_energy() + wgeo * geo_energy()
         return total
+    
+    def optim(self):
+        minimize(self.total_energy, self.extrinsics, method='Newton-CG')
 
+stride = 5
 if __name__ == "__main__":
     peter = True
 
@@ -99,7 +115,7 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.sizes(size_old, size_new)
     
-    refiner.optim()
+    # refiner.optim()
 
     result = refiner.extrinsics
 
@@ -110,10 +126,10 @@ if __name__ == "__main__":
     dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
     T1 = refiner.extrinsics[0]
     print(T1.shape)
-    #comparing frame 0 to 10 for testing
-    img2 = np.array(Image.open(color_dir + fmt.format(10)))
-    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(10))
-    T2 = refiner.extrinsics[10]
+    #comparing frame 0 to stride for testing
+    img2 = np.array(Image.open(color_dir + fmt.format(stride)))
+    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(stride))
+    T2 = refiner.extrinsics[stride]
     transformed = np.zeros_like(img1)
     print(transformed.shape)
     print(dpt1.shape)
