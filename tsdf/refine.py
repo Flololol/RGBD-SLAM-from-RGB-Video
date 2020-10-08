@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image
 import struct
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import os
 
 def load_raw_float32_image(file_name):
     with open(file_name, "rb") as f:
@@ -65,10 +67,6 @@ class pose_refiner:
         self.luminance = None
         self.normals = None
 
-    def sizes(self, size_old, size_new):
-        self.size_old = size_old
-        self.size_new = size_new
-
     def filter_framepairs(self):
         self.pair_mat = np.zeros((self.N, self.N))
         for y in range(self.N):
@@ -105,8 +103,8 @@ class pose_refiner:
                     continue
                 Ti = extr[y]
                 Tj = extr[x]
-                for px in range(self.size_new.shape[0]):
-                    for py in range(self.size_new.shape[1]):
+                for px in range(self.size.shape[0]):
+                    for py in range(self.size.shape[1]):
                         dik = np.linalg.inv(self.intrinsics).dot(np.array([px, py, 1])) * self.depth[y, py, px]
                         dik = np.append(dik, 1)
                         egeo += self.geo_energy(y, x, py, px, Ti, Tj, dik)
@@ -116,11 +114,51 @@ class pose_refiner:
         return total
 
     def load_data(self):
-        self.depth = 0
-        self.RGB = 0
+        rgbs = []
+        depths = []
+        fmt = "frame_{:06d}.png"
+        fmt_raw = "frame_{:06d}.raw"
+        tmp = np.array(Image.open(self.color_dir + fmt.format(0)))
+        self.size = (tmp.shape[1],tmp.shape[0])
+        print(self.size)
+        for i in range(self.N):
+            rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i))))
+            dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
+            dpt = abs(np.array(Image.fromarray(dpt).resize(self.size))-1)
+            depths.append(dpt)
+
+        self.RGB = np.array(rgbs)
+        self.depth = np.array(depths)
+
+        px = np.repeat(np.arange(self.size[0])[np.newaxis,:], self.size[1], axis=0)
+        py = np.repeat(np.arange(self.size[1])[:, np.newaxis], self.size[0], axis=1)
+        pz = np.ones_like(px)
+        pxyz = np.stack([px, py, pz], axis=2)
+        self.diks = np.zeros_like(pxyz).astype(float)
+        for x in range(self.size[0]):
+            for y in range(self.size[1]):
+                self.diks[y, x] = np.linalg.inv(self.intrinsics).dot(pxyz[y,x])
+
 
     def preprocess_data(self):
-        self.luminance = np.zeros((self.N, self.size_new[1], self.size_new[0], 2))
+        lumConst = np.array([0.2126,0.7152,0.0722])
+        lumi = []
+        nrmls = []
+        for i in range(self.N):
+            lum = np.matmul(self.RGB[i], lumConst)
+            lum = np.stack(np.gradient(lum)[::-1], axis=2) #inverting list order because we want x(width),y(heigth) gradient but images come in y(height),x(width)
+            lumi.append(lum)
+            # norm = np.linalg.norm(lum, axis=2)
+            # plt.imshow(norm)
+            # plt.show()
+            # exit()
+
+            dpt = self.depth[i]
+            diks = self.diks * dpt[:,:,np.newaxis]
+            exit()
+
+        self.luminance = np.array(lumi)
+
 
     def prepare(self):
         self.load_data()
@@ -132,7 +170,7 @@ class pose_refiner:
 
 stride = 10
 if __name__ == "__main__":
-    peter = True
+    peter = False
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
@@ -151,8 +189,6 @@ if __name__ == "__main__":
     size_old = (384, 224)
 
     refiner = pose_refiner(color_dir, depth_dir, metadata)
-    refiner.sizes(size_old, size_new)
-    
     # refiner.prepare()
 
     result = refiner.extrinsics
@@ -164,15 +200,33 @@ if __name__ == "__main__":
     dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
     dpt1 = abs(dpt1-1)
     T1 = refiner.extrinsics[0]
-    print(T1.shape)
     #comparing frame 0 to stride for testing
     img2 = np.array(Image.open(color_dir + fmt.format(stride)))
     dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(stride))
     T2 = refiner.extrinsics[stride]
     transformed = np.zeros_like(img1)
-    print(transformed.shape)
-    print(dpt1.shape)
 
+    # size_old = (6,4)
+    px = np.repeat(np.arange(size_old[0])[np.newaxis,:], size_old[1], axis=0)
+    py = np.repeat(np.arange(size_old[1])[:, np.newaxis], size_old[0], axis=1)
+    pz = np.ones_like(px)
+    pxyz = np.stack([px, py, pz], axis=2)
+    print(px.shape, py.shape, pxyz.shape)
+    diks = np.zeros_like(pxyz).astype(float)
+    for x in range(size_old[0]):
+        for y in range(size_old[1]):
+            # print(pxyz[y,x])
+            tmp = np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x])
+            # print(tmp)
+            diks[y, x,:] = tmp
+            # print(diks[y,x])
+            # print(np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x]))
+    # for i, xyz in enumerate(pxyz.reshape(-1,3)):
+    #     print(xyz)
+    #     diks[i] = np.linalg.inv(refiner.intrinsics).dot(xyz)
+    # diks = diks.reshape(pxyz.shape)
+    # diks = np.tensordot(np.linalg.inv(refiner.intrinsics), pxyz, axes=([0,1],[2]))
+    print("transform")
     for x in range(size_old[0]):
         for y in range(size_old[1]):
             curDepth = dpt1[y, x]
@@ -180,7 +234,15 @@ if __name__ == "__main__":
             # print(curRGB)
             pos = np.array([x, y, 1])
             # print(pos)
-            dik = np.linalg.inv(refiner.intrinsics).dot(pos) * curDepth
+            # print(pxyz[y,x])
+            # dik = np.linalg.inv(refiner.intrinsics).dot(pos)
+            # print(dik)
+            # dik *= curDepth
+            # print(dik)
+            dik = diks[y, x] * curDepth
+            # print(dik)
+            # dik *= curDepth
+            # print(dik)
             # dik /= dik[-1]
             dik = np.append(dik, 1)
             # print(dik)
