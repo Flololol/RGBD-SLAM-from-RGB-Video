@@ -8,6 +8,15 @@ from mpl_toolkits.mplot3d import Axes3D
 import os
 from tqdm import tqdm
 
+def resize_intrinsics(intrinsics, size_old, size_new):
+    fx, fy, cx, cy = intrinsics[0]
+    ratio = np.array(size_new) / np.array(size_old)
+    fx *= ratio[0]
+    fy *= ratio[1]
+    cx *= ratio[0]
+    cy *= ratio[1]
+    return fx, fy, cx, cy
+
 def load_raw_float32_image(file_name):
     with open(file_name, "rb") as f:
         CV_CN_MAX = 512
@@ -34,19 +43,21 @@ def load_raw_float32_image(file_name):
         return result
 
 class pose_refiner:
-    def __init__(self, color_dir, depth_dir, metadata):
+    def __init__(self, color_dir, depth_dir, metadata, size=(80,60)):
         self.ang_thresh = 50/180 * np.pi
 
         self.color_dir = color_dir
         self.depth_dir = depth_dir
         self.metadata = metadata
+        self.size = size
 
         with np.load(self.metadata) as meta_colmap:
             intrinsics = meta_colmap["intrinsics"]
             self.extrinsics = meta_colmap["extrinsics"]
             scales = meta_colmap["scales"]
-        intr = intrinsics[0]
+        intr = resize_intrinsics(intrinsics, (intrinsics[0,2]*2, intrinsics[0,3]*2), self.size)
         self.intrinsics = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
+        # self.intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
         # self.intrinsics = np.linalg.inv(self.intrinsics)
         self.scale = scales[:,1].mean()
         print("mean scale: {}".format(self.scale))
@@ -70,10 +81,13 @@ class pose_refiner:
         self.RGB = None
         self.luminance = None
         self.normals = None
-
-        self.size = None
+        self.fresh = True
 
     def filter_framepairs(self):
+        if not self.fresh and os.path.isfile("framepairs.npz"):
+            framepairs = np.load('framepairs.npz')
+            self.pair_mat = framepairs['pair_mat']
+            return
         self.pair_mat = np.zeros((self.N, self.N))
         # iterate over all possible pairs
         print("finding valid frame pairs..")
@@ -111,72 +125,17 @@ class pose_refiner:
                     continue
                 
                 self.pair_mat[i,j] = 1
-
-    def photo_energy(self, i, j, py, px, Ti, Tj, dik):
-        left = self.luminance[i, py, px]
-
-        dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        dim3 = dim3[:-1]
-        dim2 = self.intrinsics.dot(dim3)
-        dim2 = dim2 / dim2[-1]
-        dim2 = dim2[:-1]
-
-        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size[0] or dim2[1] > self.size[1]):
-            return 0
-
-        right = self.luminance(j, dim2[1], dim2[0])
-
-        energy = np.sum((left - right)**2)
-        return energy
-
-    def geo_energy(self, i, j, py, px, Ti, Tj, dik):
-        normal = self.normals[i, py, px]
-
-        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        dim3_2 = dim3_2[:-1]
-        dim2 = self.intrinsics.dot(dim3_2)
-        dim2 = dim2 / dim2[-1]
-        dim2 = dim2[:-1]
-
-        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size[0] or dim2[1] > self.size[1]):
-            return 0
-
-        depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2[1], dim2[0]]])
-        dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
-        dim3_2 = np.append(dim3_2, 1)
-
-        energy = ((normal.T).dot(dik - np.linalg.inv(Ti).dot(Tj.dot(dim3_2))))**2
-        return energy
-
-    def total_energy(self, extr):
-        wgeo = wphoto = 0.5
-        egeo = ephoto = 0
-        for i in range(self.N):
-            Ti = extr[i]
-            for j in range(self.N):
-                if self.pair_mat[i,j] != 1:
-                    continue
-                Tj = extr[j]
-                diks = self.diks * self.depth[i, :, :, np.newaxis]
-                for px in range(self.size[0]):
-                    for py in range(self.size[1]):
-                        dik = np.append(diks[py, px], 1)
-                        egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
-                        ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
-
-        total = wphoto * ephoto + wgeo * egeo
-        return total
+        
+        np.savez('framepairs', pair_mat=self.pair_mat)
 
     def load_data(self):
         rgbs = []
         depths = []
         fmt = "frame_{:06d}.png"
         fmt_raw = "frame_{:06d}.raw"
-        tmp = np.array(Image.open(self.color_dir + fmt.format(0)))
-        self.size = (tmp.shape[1],tmp.shape[0])
-        print("detected size: {}".format(self.size))
+        print("loading data..")
         for i in range(self.N):
-            rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i))))
+            rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i)).resize(self.size)))
             dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
             dpt = abs(np.array(Image.fromarray(dpt).resize(self.size))-1)
             depths.append(dpt)
@@ -184,7 +143,7 @@ class pose_refiner:
         self.RGB = np.array(rgbs)
         self.depth = np.array(depths)
 
-        px = np.repeat(np.arange(self.size[0])[np.newaxis,:], self.size[1], axis=0)
+        px = np.repeat(np.arange(self.size[0])[np.newaxis, :], self.size[1], axis=0)
         py = np.repeat(np.arange(self.size[1])[:, np.newaxis], self.size[0], axis=1)
         pz = np.ones_like(px)
         pxyz = np.stack([px, py, pz], axis=2)
@@ -193,8 +152,12 @@ class pose_refiner:
             for y in range(self.size[1]):
                 self.diks[y, x] = np.linalg.inv(self.intrinsics).dot(pxyz[y,x])
 
-
     def preprocess_data(self):
+        if not self.fresh and os.path.isfile("preprocessed_data.npz"):
+            preprocessed_data = np.load('preprocessed_data.npz')
+            self.luminance = preprocessed_data["luminance"]
+            self.normals = preprocessed_data["normals"]
+            return
         lumConst = np.array([0.2126,0.7152,0.0722])
         lumi = []
         nrmls = []
@@ -236,15 +199,78 @@ class pose_refiner:
         self.luminance = np.array(lumi)
         self.normals = np.array(nrmls)
 
+        np.savez('preprocessed_data', luminance=self.luminance, normals=self.normals)
+
+    def photo_energy(self, i, j, py, px, Ti, Tj, dik):
+        left = self.luminance[i, py, px]
+
+        dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        dim3 = dim3[:-1]
+        dim2 = self.intrinsics.dot(dim3)
+        dim2 = dim2 / dim2[-1]
+        dim2 = dim2[:-1]
+
+        dim2_int = np.rint(dim2).astype(int)
+        if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
+            return 0
+
+        right = self.luminance[j, dim2_int[1], dim2_int[0]]
+
+        energy = np.sum((left - right)**2)
+        return energy
+
+    def geo_energy(self, i, j, py, px, Ti, Tj, dik):
+        normal = self.normals[i, py, px]
+
+        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        dim3_2 = dim3_2[:-1]
+        dim2 = self.intrinsics.dot(dim3_2)
+        dim2 = dim2 / dim2[-1]
+        dim2 = dim2[:-1]
+
+        dim2_int = np.rint(dim2).astype(int)
+        if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
+            return 0
+
+        depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2_int[1], dim2_int[0]]])
+        dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
+        dim3_2 = np.append(dim3_2, 1)
+
+        depth_diff = dik - np.linalg.inv(Ti).dot(Tj.dot(dim3_2))
+        energy = ((normal.T).dot(depth_diff[:3]))**2
+        return energy
+
+    def total_energy(self, extr):
+        extr = extr.reshape(self.extrinsics.shape)
+        wgeo = wphoto = 0.5
+        egeo = ephoto = 0
+        print("function call!")
+        for i in tqdm(range(self.N)):
+            Ti = extr[i]
+            for j in range(self.N):
+                if self.pair_mat[i,j] != 1:
+                    continue
+                Tj = extr[j]
+                diks = self.diks * self.depth[i, :, :, np.newaxis]
+                for px in range(self.size[0]):
+                    for py in range(self.size[1]):
+                        dik = np.append(diks[py, px], 1)
+                        egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
+                        ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
+
+        total = wphoto * ephoto + wgeo * egeo
+        return total
+
     def prepare(self):
         self.load_data()
         self.preprocess_data()
         self.filter_framepairs()
 
     def optim(self):
-        minimize(self.total_energy, self.extrinsics, method='Newton-CG')
+        return minimize(self.total_energy, self.extrinsics, method=None, options={"maxiter":5})
 
 stride = 10
+fresh = False
 if __name__ == "__main__":
     peter = True
 
@@ -252,26 +278,33 @@ if __name__ == "__main__":
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
     depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
     metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
-    size_new = (384, 224)
 
     if peter:
         color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
         # color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_full/"
         depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
         metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-        size_new = (384, 224)
-        # size_new = (1920, 1080)
 
     size_old = (384, 224)
 
     refiner = pose_refiner(color_dir, depth_dir, metadata)
+    refiner.fresh = fresh
     refiner.prepare()
+    res = refiner.optim()
 
-    print("-----------------------------")
-    print(refiner.pair_mat[0])
-    exit()
+    extrinsics_new = res.x
 
-    result = refiner.extrinsics
+    COL = np.diag([1, -1, -1])
+    for i in range(extrinsics_new.shape[0]):
+        extrinsics_new[i,:3,3] = extrinsics_new[i,:3,3]*refiner.scale
+
+        extrinsics_new[i,:3,:3] = COL.dot(extrinsics_new[i,:3,:3]).dot(COL.T)
+        extrinsics_new[i,:3,3] = COL.dot(extrinsics_new[i,:3,3])
+
+    np.savez('extrinsics_new', extrinsics_new)
+
+    import pdb
+    pdb.set_trace()
 
     fmt = "frame_{:06d}.png"
     fmt_raw = "frame_{:06d}.raw"
