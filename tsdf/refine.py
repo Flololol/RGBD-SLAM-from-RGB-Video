@@ -1,4 +1,5 @@
 from scipy.optimize import minimize
+from sklearn.decomposition import PCA
 import numpy as np
 from PIL import Image
 import struct
@@ -169,14 +170,33 @@ class pose_refiner:
             # plt.show()
             # exit()
 
-            dpt = self.depth[i]
-            diks = self.diks * dpt[:,:,np.newaxis]
-            exit()
+            # dpt = self.depth[i]
+            # print(dpt.shape)
+            diks = self.diks * self.depth[i,:,:,np.newaxis]
+            nrml = np.empty_like(diks).astype(float)
+            # self.size = (5,5)
+            for x in range(self.size[0]):
+                for y in range(self.size[1]):
+                    ilow = 0 if x-1 < 0 else x-1
+                    ihigh = x+2 if x+2 <= self.size[0] else self.size[0]
+                    jlow = 0 if y-1 < 0 else y-1
+                    jhigh = y+2 if y+2 <= self.size[1] else self.size[1]
+                    ptcld = diks[jlow:jhigh,ilow:ihigh].reshape(-1,3)
+                    pca = PCA(n_components=3).fit(ptcld)
+                    nrml[y, x] = pca.components_[np.argmin(pca.explained_variance_)]
+                    # exit()
+            nrmls.append(nrml)
+            # dks = diks.reshape(-1,3)
+            # nrm = nrml.reshape(-1,3)
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111, projection='3d')
+            # ax.plot(dks[:,0], dks[:,1], dks[:,2], 'r', markersize=1)
+            # ax.quiver(dks[::100,0], dks[::100,1], dks[::100,2], nrm[::100,0], nrm[::100,1], nrm[::100,2], length=0.04)
+            # plt.show()
+            # exit()
 
         self.luminance = np.array(lumi)
-
-
-        self.normals = np.zeros((self.N, self.size_new[1], self.size_new[0], 3))
+        self.normals = np.array(nrmls)
 
     def prepare(self):
         self.load_data()
@@ -207,7 +227,7 @@ if __name__ == "__main__":
     size_old = (384, 224)
 
     refiner = pose_refiner(color_dir, depth_dir, metadata)
-    # refiner.prepare()
+    refiner.prepare()
 
     result = refiner.extrinsics
 
