@@ -7,3 +7,5 @@ report/report.lof
 
 superpoint/outputs
 tsdf/data
+
+*.npz
