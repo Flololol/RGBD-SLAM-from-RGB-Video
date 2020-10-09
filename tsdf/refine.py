@@ -6,6 +6,7 @@ import struct
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import os
+from tqdm import tqdm
 
 def load_raw_float32_image(file_name):
     with open(file_name, "rb") as f:
@@ -34,6 +35,8 @@ def load_raw_float32_image(file_name):
 
 class pose_refiner:
     def __init__(self, color_dir, depth_dir, metadata):
+        self.ang_thresh = 50/180 * np.pi
+
         self.color_dir = color_dir
         self.depth_dir = depth_dir
         self.metadata = metadata
@@ -68,12 +71,46 @@ class pose_refiner:
         self.luminance = None
         self.normals = None
 
+        self.size = None
+
     def filter_framepairs(self):
         self.pair_mat = np.zeros((self.N, self.N))
-        for y in range(self.N):
-            for x in range(self.N):
-                if y == x+stride:
-                    self.pair_mat[y,x] = 1
+        # iterate over all possible pairs
+        print("finding valid frame pairs..")
+        for i in tqdm(range(self.N)):
+            Ti = self.extrinsics[i]
+            for j in range(self.N):
+                if i == j:
+                    continue
+                # check this pair for angle
+                Tj = self.extrinsics[j]
+                ez = np.array([0,0,1])
+                viewi = Ti[:3,:3].dot(ez)
+                viewj = Tj[:3,:3].dot(ez)
+                dotprod = viewi.T.dot(viewj)
+                angle = np.arccos(dotprod)
+                if angle > self.ang_thresh:
+                    continue
+                # check this pair for overlap
+                diks = self.diks * self.depth[i, :, :, np.newaxis]
+                overlap = False
+                for px in range(self.size[0]):
+                    for py in range(self.size[1]):
+                        dik = np.append(diks[py, px], 1)
+
+                        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+                        dim3_2 = dim3_2[:-1]
+                        dim2 = self.intrinsics.dot(dim3_2)
+                        dim2 = dim2 / dim2[-1]
+                        dim2 = dim2[:-1]
+
+                        if (dim2[0] > 0 and dim2[0] < self.size[0]) and (dim2[1] > 0 and dim2[1] < self.size[1]):
+                            overlap = True
+                            break
+                if not overlap:
+                    continue
+                
+                self.pair_mat[i,j] = 1
 
     def photo_energy(self, i, j, py, px, Ti, Tj, dik):
         left = self.luminance[i, py, px]
@@ -84,7 +121,7 @@ class pose_refiner:
         dim2 = dim2 / dim2[-1]
         dim2 = dim2[:-1]
 
-        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size_new[0] or dim2[1] > self.size_new[1]):
+        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size[0] or dim2[1] > self.size[1]):
             return 0
 
         right = self.luminance(j, dim2[1], dim2[0])
@@ -101,7 +138,7 @@ class pose_refiner:
         dim2 = dim2 / dim2[-1]
         dim2 = dim2[:-1]
 
-        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size_new[0] or dim2[1] > self.size_new[1]):
+        if (dim2[0] < 0 or dim2[1] < 0) or (dim2[0] > self.size[0] or dim2[1] > self.size[1]):
             return 0
 
         depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2[1], dim2[0]]])
@@ -115,15 +152,15 @@ class pose_refiner:
         wgeo = wphoto = 0.5
         egeo = ephoto = 0
         for i in range(self.N):
+            Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
-                Ti = extr[i]
                 Tj = extr[j]
-                for px in range(self.size_new.shape[0]):
-                    for py in range(self.size_new.shape[1]):
-                        dik = np.linalg.inv(self.intrinsics).dot(np.array([px, py, 1])) * self.depth[i, py, px]
-                        dik = np.append(dik, 1)
+                diks = self.diks * self.depth[i, :, :, np.newaxis]
+                for px in range(self.size[0]):
+                    for py in range(self.size[1]):
+                        dik = np.append(diks[py, px], 1)
                         egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
                         ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
 
@@ -137,7 +174,7 @@ class pose_refiner:
         fmt_raw = "frame_{:06d}.raw"
         tmp = np.array(Image.open(self.color_dir + fmt.format(0)))
         self.size = (tmp.shape[1],tmp.shape[0])
-        print(self.size)
+        print("detected size: {}".format(self.size))
         for i in range(self.N):
             rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i))))
             dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
@@ -208,7 +245,7 @@ class pose_refiner:
 
 stride = 10
 if __name__ == "__main__":
-    peter = False
+    peter = True
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
@@ -228,6 +265,13 @@ if __name__ == "__main__":
 
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.prepare()
+
+
+    refiner.load_data()
+    refiner.filter_framepairs()
+    print("-----------------------------")
+    print(refiner.pair_mat[60])
+    exit()
 
     result = refiner.extrinsics
 
