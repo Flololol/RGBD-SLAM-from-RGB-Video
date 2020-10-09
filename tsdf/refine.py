@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import os
 from tqdm import tqdm
+from multiprocessing import Pool
 
 def resize_intrinsics(intrinsics, size_old, size_new):
     fx, fy, cx, cy = intrinsics[0]
@@ -240,23 +241,55 @@ class pose_refiner:
         energy = ((normal.T).dot(depth_diff[:3]))**2
         return energy
 
+    def total_energy_pair(self, params):
+        i, j, Ti, Tj = params
+        diks = self.diks * self.depth[i, :, :, np.newaxis]
+        egeo = ephoto = 0
+        for px in range(self.size[0]):
+            for py in range(self.size[1]):
+                dik = np.append(diks[py, px], 1)
+                egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
+                ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
+        return egeo, ephoto
+
     def total_energy(self, extr):
+        print("function call!")
         extr = extr.reshape(self.extrinsics.shape)
         wgeo = wphoto = 0.5
         egeo = ephoto = 0
-        print("function call!")
         for i in tqdm(range(self.N)):
             Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
                 Tj = extr[j]
-                diks = self.diks * self.depth[i, :, :, np.newaxis]
-                for px in range(self.size[0]):
-                    for py in range(self.size[1]):
-                        dik = np.append(diks[py, px], 1)
-                        egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
-                        ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
+                egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj])
+                egeo += egeo_n
+                ephoto += ephoto_n
+
+        total = wphoto * ephoto + wgeo * egeo
+        return total
+    
+    def total_energy_mt(self, extr):
+        print("function call!")
+        extr = extr.reshape(self.extrinsics.shape)
+        wgeo = wphoto = 0.5
+        pool = Pool(10)
+        params = []
+        for i in range(self.N):
+            Ti = extr[i]
+            for j in range(self.N):
+                if self.pair_mat[i,j] != 1:
+                    continue
+                Tj = extr[j]
+                params.append([i, j, Ti, Tj])
+
+        energies = pool.map(self.total_energy_pair, params)
+        pool.close()
+        pool.join()
+        energies = np.sum(np.array(energies), axis=1)
+        egeo = energies[0]
+        ephoto = energies[1]
 
         total = wphoto * ephoto + wgeo * egeo
         return total
@@ -267,7 +300,7 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self):
-        return minimize(self.total_energy, self.extrinsics, method=None, options={"maxiter":5})
+        return minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":1})
 
 stride = 10
 fresh = False
