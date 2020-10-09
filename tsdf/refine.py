@@ -198,7 +198,8 @@ class pose_refiner:
         lumConst = np.array([0.2126,0.7152,0.0722])
         lumi = []
         nrmls = []
-        for i in range(self.N):
+        print("preprocessing data..")
+        for i in tqdm(range(self.N)):
             lum = np.matmul(self.RGB[i], lumConst)
             lum = np.stack(np.gradient(lum)[::-1], axis=2) #inverting list order because we want x(width),y(heigth) gradient but images come in y(height),x(width)
             lumi.append(lum)
@@ -266,11 +267,8 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.prepare()
 
-
-    refiner.load_data()
-    refiner.filter_framepairs()
     print("-----------------------------")
-    print(refiner.pair_mat[60])
+    print(refiner.pair_mat[0])
     exit()
 
     result = refiner.extrinsics
