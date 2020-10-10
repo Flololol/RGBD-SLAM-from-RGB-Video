@@ -8,6 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import os
 from tqdm import tqdm
 from multiprocessing import Pool
+import open3d as o3d
 
 def resize_intrinsics(intrinsics, size_old, size_new):
     fx, fy, cx, cy = intrinsics[0]
@@ -175,25 +176,25 @@ class pose_refiner:
             # dpt = self.depth[i]
             # print(dpt.shape)
             diks = self.diks * self.depth[i,:,:,np.newaxis]
-            nrml = np.empty_like(diks).astype(float)
-            # self.size = (5,5)
-            for x in range(self.size[0]):
-                for y in range(self.size[1]):
-                    ilow = 0 if x-1 < 0 else x-1
-                    ihigh = x+2 if x+2 <= self.size[0] else self.size[0]
-                    jlow = 0 if y-1 < 0 else y-1
-                    jhigh = y+2 if y+2 <= self.size[1] else self.size[1]
-                    ptcld = diks[jlow:jhigh,ilow:ihigh].reshape(-1,3)
-                    pca = PCA(n_components=3).fit(ptcld)
-                    nrml[y, x] = pca.components_[np.argmin(pca.explained_variance_)]
-                    # exit()
+
+            ptcld = o3d.geometry.PointCloud()
+            ptcld.points = o3d.utility.Vector3dVector(diks.reshape(-1,3))
+
+            ptcld.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.15, max_nn=25))
+            ptcld.orient_normals_towards_camera_location()
+
+            nrml = np.asarray(ptcld.normals).reshape(self.size[1], self.size[0],3)
             nrmls.append(nrml)
+
+            # o3d.visualization.draw_geometries([ptcld], point_show_normal=True)
+            # exit()
+            
             # dks = diks.reshape(-1,3)
             # nrm = nrml.reshape(-1,3)
             # fig = plt.figure()
             # ax = fig.add_subplot(111, projection='3d')
             # ax.plot(dks[:,0], dks[:,1], dks[:,2], 'r', markersize=1)
-            # ax.quiver(dks[::100,0], dks[::100,1], dks[::100,2], nrm[::100,0], nrm[::100,1], nrm[::100,2], length=0.04)
+            # ax.quiver(dks[:,0], dks[:,1], dks[:,2], nrm[:,0], nrm[:,1], nrm[:,2], length=0.04)
             # plt.show()
             # exit()
 
@@ -274,7 +275,7 @@ class pose_refiner:
         print("function call!")
         extr = extr.reshape(self.extrinsics.shape)
         wgeo = wphoto = 0.5
-        pool = Pool(10)
+        pool = Pool(12)
         params = []
         for i in range(self.N):
             Ti = extr[i]
@@ -303,9 +304,9 @@ class pose_refiner:
         return minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":1})
 
 stride = 10
-fresh = False
+fresh = True
 if __name__ == "__main__":
-    peter = True
+    peter = False
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
