@@ -298,6 +298,19 @@ class pose_refiner:
         total = wphoto * ephoto + wgeo * egeo
         return total
 
+    def resize_stride(self, stride):
+        self.extrinsics = self.extrinsics[::stride]
+        
+        self.RGB = self.RGB[::stride]
+        self.depth = self.depth[::stride]
+
+        self.luminance = self.luminance[::stride]
+        self.normals = self.normals[::stride]
+
+        self.fresh = True
+        self.N = self.extrinsics.shape[0]
+        self.filter_framepairs()
+
     def prepare(self):
         self.load_data()
         self.preprocess_data()
@@ -309,7 +322,7 @@ class pose_refiner:
 stride = 10
 fresh = True
 if __name__ == "__main__":
-    peter = False
+    peter = True
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
@@ -325,6 +338,7 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.fresh = fresh
     refiner.prepare()
+    refiner.resize_stride(5)
     res = refiner.optim()
 
     extrinsics_new = res.x
