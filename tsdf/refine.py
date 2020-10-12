@@ -348,7 +348,7 @@ if __name__ == "__main__":
     extrinsics_new = refiner.optim()
 
     COL = np.diag([1, -1, -1])
-    for i in range(extrinsics_new.shape[0]):
+    for i in range(refiner.N):
         extrinsics_new[i,:3,3] = extrinsics_new[i,:3,3]*refiner.scale
 
         extrinsics_new[i,:3,:3] = COL.dot(extrinsics_new[i,:3,:3]).dot(COL.T)
