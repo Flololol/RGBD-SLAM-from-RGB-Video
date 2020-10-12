@@ -346,16 +346,16 @@ if __name__ == "__main__":
     refiner.fresh = fresh
     refiner.prepare()
     refiner.resize_stride(10)
-    extrinsics_new = refiner.optim()
+    extrinsics_opt = refiner.optim()
 
     COL = np.diag([1, -1, -1])
     for i in range(refiner.N):
-        extrinsics_new[i,:3,3] = extrinsics_new[i,:3,3]*refiner.scale
+        extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
 
-        extrinsics_new[i,:3,:3] = COL.dot(extrinsics_new[i,:3,:3]).dot(COL.T)
-        extrinsics_new[i,:3,3] = COL.dot(extrinsics_new[i,:3,3])
+        extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
+        extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-    np.savez('extrinsics_new', extrinsics_new)
+    np.savez('extrinsics_opt', extrinsics_opt)
 
     import pdb
     pdb.set_trace()
