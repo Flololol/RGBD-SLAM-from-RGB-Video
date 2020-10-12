@@ -355,7 +355,7 @@ if __name__ == "__main__":
         extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
         extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-    np.savez('extrinsics_opt', extrinsics_opt)
+    np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
 
     import pdb
     pdb.set_trace()
