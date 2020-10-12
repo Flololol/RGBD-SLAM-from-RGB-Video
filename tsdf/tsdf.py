@@ -54,12 +54,14 @@ metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.n
 size_new = (1280, 720)
 
 if peter:
-    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/color_down_png/"
-    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/color_full/"
-    depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-    metadata = "/home/noxx/Documents/projects/consistent_depth/results/room01/R_hierarchical2_mc/metadata_scaled.npz"
-    metad = "/home/noxx/Documents/projects/consistent_depth/results/room01/colmap_dense/metadata.npz"
+    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
+    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_full/"
+    depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+    metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
+    metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
     size_new = (1920, 1080)
+
+extr_opt = "./extrinsics_opt.npz"
 
 size_old = (384, 224)
 fmt = "frame_{:06d}.png"
@@ -69,6 +71,11 @@ with np.load(metadata) as meta_colmap:
     intrinsics = meta_colmap["intrinsics"]
     extrinsics = meta_colmap["extrinsics"]
     scales = meta_colmap["scales"]
+
+with np.load(extr_opt) as extr_opt:
+    extrinsics_opt = extr_opt["extrinsics_opt"]
+
+# extrinsics = extrinsics_opt
 
 scale = scales[:,1].mean()
 print("mean scale: {}".format(scale))
@@ -84,7 +91,6 @@ print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
 COL = np.diag([1, -1, -1])
 cam_loc = np.empty((np.shape(extrinsics)[0], 4))
 point_cloud = np.empty((np.shape(extrinsics)[0], 2, 4))
-extr_shape = (extrinsics.shape[0], 4, 4)
 extra_row = np.zeros((extrinsics.shape[0],1,4))
 extra_row[:,0,3] = 1
 extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
@@ -120,8 +126,8 @@ ax.set_zlim([-1, 1])
 ax.set_xlabel("X axis")
 ax.set_ylabel("Y axis")
 ax.set_zlabel("Z axis")
-# plt.show()
-# exit()
+plt.show()
+exit()
 
 # single image visualization:
 depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
