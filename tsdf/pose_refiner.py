@@ -86,6 +86,8 @@ class pose_refiner:
                         if (dim2[0] > 0 and dim2[0] < self.size[0]) and (dim2[1] > 0 and dim2[1] < self.size[1]):
                             overlap = True
                             break
+                    if overlap:
+                        break
                 if not overlap:
                     continue
                 
