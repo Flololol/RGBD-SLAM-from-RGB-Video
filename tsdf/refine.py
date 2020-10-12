@@ -73,7 +73,6 @@ class pose_refiner:
             self.extrinsics[i,:,3] = self.extrinsics[i,:,3]/self.scale
 
             # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
-        self.extra_row = np.array([0,0,0,1])
         
 
         self.pair_mat = None
@@ -96,12 +95,12 @@ class pose_refiner:
         # iterate over all possible pairs
         print("finding valid frame pairs..")
         for i in tqdm(range(self.N)):
-            Ti = np.vstack((self.extrinsics[i], self.extra_row))
+            Ti = np.vstack((self.extrinsics[i], np.array([0,0,0,1])))
             for j in range(self.N):
                 if i == j:
                     continue
                 # check this pair for angle
-                Tj = np.vstack((self.extrinsics[j], self.extra_row))
+                Tj = np.vstack((self.extrinsics[j], np.array([0,0,0,1])))
                 ez = np.array([0,0,1])
                 viewi = Ti[:3,:3].dot(ez)
                 viewj = Tj[:3,:3].dot(ez)
@@ -264,13 +263,13 @@ class pose_refiner:
         wgeo = wphoto = 0.5
         egeo = ephoto = 0
         for i in tqdm(range(self.N)):
-            Ti = np.vstack((extr[i], self.extra_row))
+            Ti = np.vstack((extr[i], np.array([0,0,0,1])))
             # Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
                 # Tj = extr[j]
-                Tj = np.vstack((extr[j], self.extra_row))
+                Tj = np.vstack((extr[j], np.array([0,0,0,1])))
                 egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj])
                 egeo += egeo_n
                 ephoto += ephoto_n
@@ -286,13 +285,13 @@ class pose_refiner:
         pool = Pool(12)
         params = []
         for i in range(self.N):
-            Ti = np.vstack((extr[i], self.extra_row))
+            Ti = np.vstack((extr[i], np.array([0,0,0,1])))
             # Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
                 # Tj = extr[j]
-                Tj = np.vstack((extr[j], self.extra_row))
+                Tj = np.vstack((extr[j], np.array([0,0,0,1])))
                 params.append([i, j, Ti, Tj])
 
         energies = pool.map(self.total_energy_pair, params)
@@ -328,7 +327,7 @@ class pose_refiner:
 
         return self.extrinsics_opt
 
-stride = 10
+stride = 6
 fresh = False
 if __name__ == "__main__":
     peter = True
@@ -344,47 +343,53 @@ if __name__ == "__main__":
         depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
         metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
 
-    refiner = pose_refiner(color_dir, depth_dir, metadata)
-    refiner.fresh = fresh
-    refiner.prepare()
-    refiner.resize_stride(10)
 
-    print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
-    extrinsics_opt = refiner.optim()
-    print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
+    if False:
+        refiner = pose_refiner(color_dir, depth_dir, metadata)
+        refiner.fresh = fresh
+        refiner.prepare()
+        refiner.resize_stride(10)
 
-    COL = np.diag([1, -1, -1])
-    for i in range(refiner.N):
-        extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
+        print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
+        extrinsics_opt = refiner.optim()
+        print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
 
-        extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
-        extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
+        COL = np.diag([1, -1, -1])
+        for i in range(refiner.N):
+            extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
 
-    np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
+            extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
+            extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-
-
-
+        np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
 
 
+
+
+
+
+
+    img2_idx = 7
+    # size_old = (6,4)
+    size_old = (384, 224)
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size_old)
+    refiner.load_data()
 
     fmt = "frame_{:06d}.png"
     fmt_raw = "frame_{:06d}.raw"
 
-    img2_idx = 2
-
-    img1 = np.array(Image.open(color_dir + fmt.format(0)))
-    dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
-    dpt1 = abs(dpt1-1)
-    T1 = refiner.extrinsics[0]
     #comparing frame 0 to img2_idx for testing
-    img2 = np.array(Image.open(color_dir + fmt.format(img2_idx)))
-    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(img2_idx))
-    T2 = refiner.extrinsics[img2_idx]
+    img1 = refiner.RGB[0]
+    dpt1 = refiner.depth[0]
+    T1 = np.vstack((refiner.extrinsics[0], np.array([0,0,0,1])))
+    
+    img2 = refiner.RGB[img2_idx]
+    dpt2 = refiner.depth[img2_idx]
+    T2 = np.vstack((refiner.extrinsics[img2_idx], np.array([0,0,0,1])))
+
     transformed = np.zeros_like(img1)
 
-    # size_old = (6,4)
-    size_old = (384, 224)
+    #prepare array 'diks' that, when multiplied with the depth, yields the 3d point 'dik' in camera coordinates (for image i and pixel k)
     px = np.repeat(np.arange(size_old[0])[np.newaxis,:], size_old[1], axis=0)
     py = np.repeat(np.arange(size_old[1])[:, np.newaxis], size_old[0], axis=1)
     pz = np.ones_like(px)
@@ -396,7 +401,7 @@ if __name__ == "__main__":
             # print(pxyz[y,x])
             tmp = np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x])
             # print(tmp)
-            diks[y, x,:] = tmp
+            diks[y, x, :] = tmp
             # print(diks[y,x])
             # print(np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x]))
     # for i, xyz in enumerate(pxyz.reshape(-1,3)):
@@ -435,7 +440,7 @@ if __name__ == "__main__":
             if imgX > 0 and imgX < img2.shape[1]:
                 if imgY > 0 and imgY < img2.shape[0]:
                     transformed[imgY, imgX] = curRGB
-                    img2[imgY, imgX] = curRGB
+                    # img2[imgY, imgX] = curRGB
             # exit()
 
     plt.imshow(transformed)
