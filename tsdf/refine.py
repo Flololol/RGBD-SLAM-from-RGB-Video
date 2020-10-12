@@ -1,10 +1,7 @@
 from scipy.optimize import minimize
-from sklearn.decomposition import PCA
 import numpy as np
 from PIL import Image
 import struct
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import os
 from tqdm import tqdm
 from multiprocessing import Pool
@@ -148,6 +145,7 @@ class pose_refiner:
         self.RGB = np.array(rgbs)
         self.depth = np.array(depths)
 
+        #prepare array 'diks' that, when multiplied with the depth, yields the 3d point 'dik' in camera coordinates (for image i and pixel k)
         px = np.repeat(np.arange(self.size[0])[np.newaxis, :], self.size[1], axis=0)
         py = np.repeat(np.arange(self.size[1])[:, np.newaxis], self.size[0], axis=1)
         pz = np.ones_like(px)
@@ -343,108 +341,20 @@ if __name__ == "__main__":
         depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
         metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
 
+    refiner = pose_refiner(color_dir, depth_dir, metadata)
+    refiner.fresh = fresh
+    refiner.prepare()
+    refiner.resize_stride(10)
 
-    if False:
-        refiner = pose_refiner(color_dir, depth_dir, metadata)
-        refiner.fresh = fresh
-        refiner.prepare()
-        refiner.resize_stride(10)
+    print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
+    extrinsics_opt = refiner.optim()
+    print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
 
-        print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
-        extrinsics_opt = refiner.optim()
-        print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
+    COL = np.diag([1, -1, -1])
+    for i in range(refiner.N):
+        extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
 
-        COL = np.diag([1, -1, -1])
-        for i in range(refiner.N):
-            extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
+        extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
+        extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-            extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
-            extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
-
-        np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
-
-
-
-
-
-
-
-    img2_idx = 7
-    # size_old = (6,4)
-    size_old = (384, 224)
-    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size_old)
-    refiner.load_data()
-
-    fmt = "frame_{:06d}.png"
-    fmt_raw = "frame_{:06d}.raw"
-
-    #comparing frame 0 to img2_idx for testing
-    img1 = refiner.RGB[0]
-    dpt1 = refiner.depth[0]
-    T1 = np.vstack((refiner.extrinsics[0], np.array([0,0,0,1])))
-    
-    img2 = refiner.RGB[img2_idx]
-    dpt2 = refiner.depth[img2_idx]
-    T2 = np.vstack((refiner.extrinsics[img2_idx], np.array([0,0,0,1])))
-
-    transformed = np.zeros_like(img1)
-
-    #prepare array 'diks' that, when multiplied with the depth, yields the 3d point 'dik' in camera coordinates (for image i and pixel k)
-    px = np.repeat(np.arange(size_old[0])[np.newaxis,:], size_old[1], axis=0)
-    py = np.repeat(np.arange(size_old[1])[:, np.newaxis], size_old[0], axis=1)
-    pz = np.ones_like(px)
-    pxyz = np.stack([px, py, pz], axis=2)
-    print(px.shape, py.shape, pxyz.shape)
-    diks = np.zeros_like(pxyz).astype(float)
-    for x in range(size_old[0]):
-        for y in range(size_old[1]):
-            # print(pxyz[y,x])
-            tmp = np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x])
-            # print(tmp)
-            diks[y, x, :] = tmp
-            # print(diks[y,x])
-            # print(np.linalg.inv(refiner.intrinsics).dot(pxyz[y,x]))
-    # for i, xyz in enumerate(pxyz.reshape(-1,3)):
-    #     print(xyz)
-    #     diks[i] = np.linalg.inv(refiner.intrinsics).dot(xyz)
-    # diks = diks.reshape(pxyz.shape)
-    # diks = np.tensordot(np.linalg.inv(refiner.intrinsics), pxyz, axes=([0,1],[2]))
-    print("transform")
-    for x in range(size_old[0]):
-        for y in range(size_old[1]):
-            curDepth = dpt1[y, x]
-            curRGB = img1[y, x]
-            # print(curRGB)
-            pos = np.array([x, y, 1])
-            # print(pos)
-            # print(pxyz[y,x])
-            # dik = np.linalg.inv(refiner.intrinsics).dot(pos)
-            # print(dik)
-            # dik *= curDepth
-            # print(dik)
-            dik = diks[y, x] * curDepth
-            # print(dik)
-            # dik *= curDepth
-            # print(dik)
-            # dik /= dik[-1]
-            dik = np.append(dik, 1)
-            # print(dik)
-            tgt = np.linalg.inv(T2).dot(T1.dot(dik))
-            tgt = np.delete(tgt, 3)
-            # print(tgt)
-            imgPos = refiner.intrinsics.dot(tgt)
-            imgPos = imgPos / imgPos[-1]
-            # print(imgPos)
-            imgX = int(imgPos[0])
-            imgY = int(imgPos[1])
-            if imgX > 0 and imgX < img2.shape[1]:
-                if imgY > 0 and imgY < img2.shape[0]:
-                    transformed[imgY, imgX] = curRGB
-                    # img2[imgY, imgX] = curRGB
-            # exit()
-
-    plt.imshow(transformed)
-    plt.show()
-    plt.imshow(img2)
-    plt.show()
-    exit()
+    np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
