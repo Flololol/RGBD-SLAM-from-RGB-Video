@@ -371,14 +371,16 @@ if __name__ == "__main__":
     fmt = "frame_{:06d}.png"
     fmt_raw = "frame_{:06d}.raw"
 
+    img2_idx = 2
+
     img1 = np.array(Image.open(color_dir + fmt.format(0)))
     dpt1 = load_raw_float32_image(depth_dir + fmt_raw.format(0))
     dpt1 = abs(dpt1-1)
     T1 = refiner.extrinsics[0]
-    #comparing frame 0 to stride for testing
-    img2 = np.array(Image.open(color_dir + fmt.format(stride)))
-    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(stride))
-    T2 = refiner.extrinsics[stride]
+    #comparing frame 0 to img2_idx for testing
+    img2 = np.array(Image.open(color_dir + fmt.format(img2_idx)))
+    dpt2 = load_raw_float32_image(depth_dir+fmt_raw.format(img2_idx))
+    T2 = refiner.extrinsics[img2_idx]
     transformed = np.zeros_like(img1)
 
     # size_old = (6,4)
