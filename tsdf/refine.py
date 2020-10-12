@@ -7,6 +7,10 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import open3d as o3d
 
+stride = 6
+fresh = False
+peter = True
+
 def resize_intrinsics(intrinsics, size_old, size_new):
     fx, fy, cx, cy = intrinsics[0]
     ratio = np.array(size_new) / np.array(size_old)
@@ -325,10 +329,7 @@ class pose_refiner:
 
         return self.extrinsics_opt
 
-stride = 6
-fresh = False
 if __name__ == "__main__":
-    peter = True
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
