@@ -130,6 +130,7 @@ class pose_refiner:
                 self.pair_mat[i,j] = 1
         
         np.savez('framepairs', pair_mat=self.pair_mat)
+        print('found {} framepairs'.format(int(np.sum(self.pair_mat))))
 
     def load_data(self):
         rgbs = []
@@ -321,14 +322,14 @@ class pose_refiner:
 
     def optim(self, maxIter=1):
         self.minimizer = minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":maxIter})
-        self.extrinsics_opt = self.minimizer.x
+        self.extrinsics_opt = self.minimizer.x.reshape(self.extrinsics.shape)
 
         return self.extrinsics_opt
 
 stride = 10
 fresh = False
 if __name__ == "__main__":
-    peter = False
+    peter = True
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
@@ -344,7 +345,7 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.fresh = fresh
     refiner.prepare()
-    refiner.resize_stride(5)
+    refiner.resize_stride(10)
     extrinsics_new = refiner.optim()
 
     COL = np.diag([1, -1, -1])
@@ -358,6 +359,12 @@ if __name__ == "__main__":
 
     import pdb
     pdb.set_trace()
+
+
+
+
+
+
 
     fmt = "frame_{:06d}.png"
     fmt_raw = "frame_{:06d}.raw"
