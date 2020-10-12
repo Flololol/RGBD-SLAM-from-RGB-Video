@@ -3,6 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+img1_idx = 0
+img2_idx = 7
+
 if __name__ == "__main__":
     peter = True
 
@@ -15,8 +18,6 @@ if __name__ == "__main__":
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
     metadata = base_dir+"R_hierarchical2_mc/metadata_scaled.npz"
 
-    
-    img2_idx = 7
     # size_old = (6,4)
     size_old = (384, 224)
     refiner = pose_refiner(color_dir, depth_dir, metadata, size=size_old)
@@ -26,9 +27,9 @@ if __name__ == "__main__":
     fmt_raw = "frame_{:06d}.raw"
 
     #comparing frame 0 to img2_idx for testing
-    img1 = refiner.RGB[0]
-    dpt1 = refiner.depth[0]
-    T1 = np.vstack((refiner.extrinsics[0], np.array([0,0,0,1])))
+    img1 = refiner.RGB[img1_idx]
+    dpt1 = refiner.depth[img1_idx]
+    T1 = np.vstack((refiner.extrinsics[img1_idx], np.array([0,0,0,1])))
 
     img2 = refiner.RGB[img2_idx]
     dpt2 = refiner.depth[img2_idx]
