@@ -1,206 +1,89 @@
 import open3d as o3d
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import struct
 from PIL import Image
+from pose_refiner import pose_refiner
 
-def load_raw_float32_image(file_name):
-    with open(file_name, "rb") as f:
-        CV_CN_MAX = 512
-        CV_CN_SHIFT = 3
-        CV_32F = 5
-        I_BYTES = 4
-        Q_BYTES = 8
-
-        h = struct.unpack("i", f.read(I_BYTES))[0]
-        w = struct.unpack("i", f.read(I_BYTES))[0]
-
-        cv_type = struct.unpack("i", f.read(I_BYTES))[0]
-        pixel_size = struct.unpack("Q", f.read(Q_BYTES))[0]
-        d = ((cv_type - CV_32F) >> CV_CN_SHIFT) + 1
-        assert d >= 1
-        d_from_pixel_size = pixel_size // 4
-        if d != d_from_pixel_size:
-            raise Exception("Incompatible pixel_size(%d) and cv_type(%d)" % (pixel_size, cv_type))
-        if d > CV_CN_MAX:
-            raise Exception("Cannot save image with more than 512 channels")
-
-        data = np.frombuffer(f.read(), dtype=np.float32)
-        result = data.reshape(h, w) if d == 1 else data.reshape(h, w, d)
-        return result
-
-def resize_intrinsics(intrinsics, size_old, size_new):
-    fx, fy, cx, cy = intrinsics[0]
-    ratio = np.array(size_new) / np.array(size_old)
-    fx *= ratio[0]
-    fy *= ratio[1]
-    cx *= ratio[0]
-    cy *= ratio[1]
-    return fx, fy, cx, cy
-
-volume = o3d.integration.ScalableTSDFVolume(
-    voxel_length = 1.0 / 512,
-    sdf_trunc = 0.1,
-    color_type=o3d.integration.TSDFVolumeColorType.RGB8
-)
 peter = True
+use_opt = False
+img1_idx = 0
+size = (1920, 1080)
 
-# color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
-color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
-depth_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
-metadata = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/R_hierarchical2_mc/metadata_scaled.npz"
-metad = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/colmap_dense/metadata.npz"
-size_new = (1280, 720)
+if __name__ == "__main__":
+    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
+    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
+    if peter:
+        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/"
+        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
 
-if peter:
-    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_down_png/"
-    color_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/color_full/"
-    depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
-    metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
-    metad = "/home/noxx/Documents/projects/consistent_depth/results/debug03/colmap_dense/metadata.npz"
-    size_new = (1920, 1080)
+    color_dir = base_dir+"color_down_png/"
+    color_dir = base_dir+"color_full/"
+    metadata = base_dir+"R_hierarchical2_mc/metadata_scaled.npz"
 
-extr_opt = "./extrinsics_opt.npz"
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size)
+    refiner.load_data()
+    extrinsics = refiner.extrinsics
 
-size_old = (384, 224)
-fmt = "frame_{:06d}.png"
-fmt_raw = "frame_{:06d}.raw"
+    extr_opt = "./extrinsics_opt.npz"
+    if use_opt:
+        with np.load(extr_opt) as extr_opt:
+            extrinsics_opt = extr_opt["extrinsics_opt"]
+        refiner.resize_stride(int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]))
+        extrinsics = extrinsics_opt
 
-with np.load(metadata) as meta_colmap:
-    intrinsics = meta_colmap["intrinsics"]
-    extrinsics = meta_colmap["extrinsics"]
-    scales = meta_colmap["scales"]
+    volume = o3d.integration.ScalableTSDFVolume(
+        voxel_length = 1.0 / 512,
+        sdf_trunc = 0.1,
+        color_type=o3d.integration.TSDFVolumeColorType.RGB8
+    )
 
-with np.load(extr_opt) as extr_opt:
-    extrinsics_opt = extr_opt["extrinsics_opt"]
+    fx, fy, cx, cy = refiner.intrinsics[0,0], refiner.intrinsics[1,1], refiner.intrinsics[0,2], refiner.intrinsics[1,2]
+    intr = o3d.camera.PinholeCameraIntrinsic(*refiner.size, fx, fy, cx, cy)
 
-# extrinsics = extrinsics_opt
+    # single image visualization:
+    print("starting on single.ply")
+    depth = refiner.depth[img1_idx]
+    color = refiner.RGB[img1_idx]
+    # plt.clf()
+    # plt.imshow(depth, cmap='gray')
+    # plt.show()
+    # exit()
 
-scale = scales[:,1].mean()
-print("mean scale: {}".format(scale))
-# with np.load(metad) as meta_colmap:
-#     extrinsics = meta_colmap["extrinsics"]
-# extrinsics[:,:,-1] /= scale**2 #warum müssen wir die normalen extrinsics 2 mal durch die scale teilen damit es passt?
-
-fx, fy, cx, cy = resize_intrinsics(intrinsics, size_old, size_new)
-intr = o3d.camera.PinholeCameraIntrinsic(*size_new, fx, fy, cx, cy)
-print("-----------")
-print('initial cam pos, unmodified: {}'.format(extrinsics[0,:3,3]))
-
-COL = np.diag([1, -1, -1])
-cam_loc = np.empty((np.shape(extrinsics)[0], 4))
-point_cloud = np.empty((np.shape(extrinsics)[0], 2, 4))
-extra_row = np.zeros((extrinsics.shape[0],1,4))
-extra_row[:,0,3] = 1
-extrinsics = np.concatenate((extrinsics, extra_row), axis=1)
-for i in range(extrinsics.shape[0]):
-    extrinsics[i,:3,:3] = COL.dot(extrinsics[i,:3,:3]).dot(COL.T)
-    extrinsics[i,:3,3] = COL.dot(extrinsics[i,:3,3])
-
-    extrinsics[i,:3,3] = extrinsics[i,:3,3]/scale
-
-    extrinsics[i] = np.linalg.inv(extrinsics[i])
-
-    cam_loc[i] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0,1]))
-    cam_loc[i] /= cam_loc[i,3]
-    point_cloud[i,0] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.2,1]))
-    point_cloud[i,0] /= point_cloud[i,0,3]
-    point_cloud[i,1] = np.linalg.inv(extrinsics[i]).dot(np.array([0,0,0.8,1]))
-    point_cloud[i,1] /= point_cloud[i,1,3]
-
-print('initial cam pos, modified: {}'.format(np.linalg.inv(extrinsics[0])[:3,3]))
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot(cam_loc[0,0], cam_loc[0,1], cam_loc[0,2], 'ro', markersize=8)
-ax.plot(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2], 'gx', markersize=6)
-ax.plot(point_cloud[0,0,0], point_cloud[0,0,1], point_cloud[0,0,2], 'ro', markersize=8)
-ax.plot(point_cloud[:,0,0], point_cloud[:,0,1], point_cloud[:,0,2], 'bo', markersize=4)
-ax.plot(point_cloud[0,1,0], point_cloud[0,1,1], point_cloud[0,1,2], 'ro', markersize=8)
-ax.plot(point_cloud[:,1,0], point_cloud[:,1,1], point_cloud[:,1,2], 'bo', markersize=4)
-# ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
-ax.set_xlim([-1, 1])
-ax.set_ylim([-1, 1])
-ax.set_zlim([-1, 1])
-ax.set_xlabel("X axis")
-ax.set_ylabel("Y axis")
-ax.set_zlabel("Z axis")
-plt.show()
-exit()
-
-# single image visualization:
-depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
-depth = np.array(Image.fromarray(depth).resize(size_new))
-# plt.clf()
-# plt.imshow(depth, cmap='gray')
-# plt.show()
-# exit()
-
-# tmpmin = np.min(depth)
-tmpmin = 0
-# tmpmin = 0.15
-depth = abs(depth-1)+tmpmin
-# depth = depth*scale
-depth = o3d.geometry.Image(depth)
-color = o3d.io.read_image(color_dir+fmt.format(0))
-# print(depth)
-# print(color)
-rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
-
-volume.integrate(rgbd, intr, extrinsics[0])
-
-# depth = load_raw_float32_image(depth_dir+fmt_raw.format(50))
-# tmpmin = np.min(depth)
-# depth = abs(depth-1)+tmpmin
-# depth = o3d.geometry.Image(depth)
-# color = o3d.io.read_image(color_dir+fmt.format(50))
-# rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False)
-
-# volume.integrate(rgbd, intr, extrinsics[50])
-
-single = volume.extract_triangle_mesh()
-single.compute_vertex_normals()
-o3d.io.write_triangle_mesh("single.ply", single)
-print("single.ply done.")
-#ptc = volume.extract_voxel_point_cloud()
-#o3d.io.write_point_cloud("single_cld.pcd", ptc)
-volume.reset()
-
-# print("-----------------------------------")
-# print(extrinsics[0,:,:])
-# print(depth)
-# depth = load_raw_float32_image(depth_dir+fmt_raw.format(0))
-# print(depth[0,0])
-# print("-----------------------------------")
-# exit()
-
-# full reconstruction
-for i, ext in enumerate(extrinsics):
-    
-    depth = load_raw_float32_image(depth_dir+fmt_raw.format(i))
-    depth = np.array(Image.fromarray(depth).resize(size_new))
-    # tmpmin = np.min(depth)
-    tmpmin = 0.0
-    # tmpmin = 0.15
-    depth = abs(depth-1)+tmpmin
-    # depth = depth*scale
     depth = o3d.geometry.Image(depth)
-    #print(color)
-    # depth = o3d.io.read_image(depth_dir+fmt.format(i))
-    color = o3d.io.read_image(color_dir+fmt.format(i))
+    color = o3d.geometry.Image(color)
+    # color = o3d.io.read_image(color_dir+fmt.format(img1_idx))
     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
-    # ext = np.linalg.inv(ext)
+
+    ext = np.vstack((extrinsics[img1_idx], np.array([0,0,0,1])))
+    ext = np.linalg.inv(ext)
     volume.integrate(rgbd, intr, ext)
 
-    # if i >= 10:
-    #     break
+    single = volume.extract_triangle_mesh()
+    single.compute_vertex_normals()
+    o3d.io.write_triangle_mesh("single.ply", single)
+    #ptc = volume.extract_voxel_point_cloud()
+    #o3d.io.write_point_cloud("single_cld.pcd", ptc)
+    volume.reset()
+    print("single.ply done.")
 
-print("Extracting triangle mesh from volume..")
-mesh = volume.extract_triangle_mesh()
-mesh.compute_vertex_normals()
-o3d.io.write_triangle_mesh("mesh.ply", mesh)
-print("done.")
-#ptc = volume.extract_voxel_point_cloud()
-#o3d.io.write_point_cloud("cld.pcd", ptc)
-#o3d.visualization.draw_geometries([mesh], front=[0.5297, -0.1873, -0.8272], lookat=[2.0712, 2.0312, 1.7251], up=[-0.0558, -0.9809, 0.1864], zoom=0.47)
+    # full reconstruction
+    print("starting on mesh.ply")
+    for i, ext in enumerate(extrinsics):
+        ext = np.vstack((ext, np.array([0,0,0,1])))
+        ext = np.linalg.inv(ext)
+        depth = o3d.geometry.Image(refiner.depth[i])
+        color = o3d.geometry.Image(refiner.RGB[i])
+        rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
+        volume.integrate(rgbd, intr, ext)
+
+        # if i >= 10:
+        #     break
+
+    print("Extracting triangle mesh from volume..")
+    mesh = volume.extract_triangle_mesh()
+    mesh.compute_vertex_normals()
+    o3d.io.write_triangle_mesh("mesh.ply", mesh)
+    #ptc = volume.extract_voxel_point_cloud()
+    #o3d.io.write_point_cloud("cld.pcd", ptc)
+    #o3d.visualization.draw_geometries([mesh], front=[0.5297, -0.1873, -0.8272], lookat=[2.0712, 2.0312, 1.7251], up=[-0.0558, -0.9809, 0.1864], zoom=0.47)
+    print("mesh.ply done.")
