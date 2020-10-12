@@ -25,7 +25,7 @@ class pose_refiner:
         # self.intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
         # self.intrinsics = np.linalg.inv(self.intrinsics)
         self.scale = scales[:,1].mean()
-        print("mean scale: {}".format(self.scale))
+        # print("mean scale: {}".format(self.scale))
 
         self.N = self.extrinsics.shape[0]
         COL = np.diag([1, -1, -1])
