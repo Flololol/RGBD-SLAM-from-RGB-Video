@@ -25,11 +25,11 @@ if __name__ == "__main__":
     extrinsics_opt = refiner.optim()
     print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
 
-    COL = np.diag([1, -1, -1])
-    for i in range(refiner.N):
-        extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
+    # COL = np.diag([1, -1, -1])
+    # for i in range(refiner.N):
+    #     extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]*refiner.scale
 
-        extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
-        extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
+    #     extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
+    #     extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
     np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)

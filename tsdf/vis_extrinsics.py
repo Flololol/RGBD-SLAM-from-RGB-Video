@@ -30,12 +30,12 @@ if __name__ == "__main__":
     if include_opt:
         with np.load(extr_opt) as extr_opt:
             extrinsics_opt = extr_opt["extrinsics_opt"]
-        COL = np.diag([1, -1, -1])
-        for i in range(extrinsics_opt.shape[0]):
-            extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
-            extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
+        # COL = np.diag([1, -1, -1])
+        # for i in range(extrinsics_opt.shape[0]):
+        #     extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
+        #     extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-            extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]/refiner.scale
+        #     extrinsics_opt[i,:3,3] = extrinsics_opt[i,:3,3]/refiner.scale
 
         extrinsics = np.concatenate((refiner.extrinsics, extrinsics_opt), axis=0)
 
