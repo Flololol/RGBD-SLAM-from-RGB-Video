@@ -7,7 +7,7 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import open3d as o3d
 
-stride = 6
+stride = 10
 fresh = False
 peter = True
 
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.fresh = fresh
     refiner.prepare()
-    refiner.resize_stride(10)
+    refiner.resize_stride(stride)
 
     print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
     extrinsics_opt = refiner.optim()
