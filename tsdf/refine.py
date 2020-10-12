@@ -85,6 +85,8 @@ class pose_refiner:
         self.normals = None
         self.fresh = True
 
+        self.iter = 0
+
     def filter_framepairs(self):
         if not self.fresh and os.path.isfile("framepairs.npz"):
             framepairs = np.load('framepairs.npz')
@@ -272,7 +274,8 @@ class pose_refiner:
         return total
     
     def total_energy_mt(self, extr):
-        print("function call!")
+        self.iter += 1
+        print("function call #{}".format(self.iter))
         extr = extr.reshape(self.extrinsics.shape)
         wgeo = wphoto = 0.5
         pool = Pool(12)
@@ -319,8 +322,6 @@ if __name__ == "__main__":
         depth_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
         metadata = "/home/noxx/Documents/projects/consistent_depth/results/debug03/R_hierarchical2_mc/metadata_scaled.npz"
 
-    size_old = (384, 224)
-
     refiner = pose_refiner(color_dir, depth_dir, metadata)
     refiner.fresh = fresh
     refiner.prepare()
@@ -354,6 +355,7 @@ if __name__ == "__main__":
     transformed = np.zeros_like(img1)
 
     # size_old = (6,4)
+    size_old = (384, 224)
     px = np.repeat(np.arange(size_old[0])[np.newaxis,:], size_old[1], axis=0)
     py = np.repeat(np.arange(size_old[1])[:, np.newaxis], size_old[0], axis=1)
     pz = np.ones_like(px)
