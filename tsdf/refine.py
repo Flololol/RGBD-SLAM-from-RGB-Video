@@ -65,9 +65,9 @@ class pose_refiner:
         print("mean scale: {}".format(self.scale))
 
         COL = np.diag([1, -1, -1])
-        extra_row = np.zeros((self.extrinsics.shape[0],1,4))
-        extra_row[:,0,3] = 1
-        self.extrinsics = np.concatenate((self.extrinsics, extra_row), axis=1)
+        # extra_row = np.zeros((self.extrinsics.shape[0],1,4))
+        # extra_row[:,0,3] = 1
+        # self.extrinsics = np.concatenate((self.extrinsics, extra_row), axis=1)
         for i in range(self.extrinsics.shape[0]):
             self.extrinsics[i,:3,:3] = COL.dot(self.extrinsics[i,:3,:3]).dot(COL.T)
             self.extrinsics[i,:3,3] = COL.dot(self.extrinsics[i,:3,3])
@@ -342,9 +342,10 @@ if __name__ == "__main__":
     res = refiner.optim()
 
     extrinsics_new = res.x
+    extrinsics_new = extrinsics_new.reshape(refiner.extrinsics.shape)
 
     COL = np.diag([1, -1, -1])
-    for i in range(extrinsics_new.shape[0]):
+    for i in range(refiner.N):
         extrinsics_new[i,:3,3] = extrinsics_new[i,:3,3]*refiner.scale
 
         extrinsics_new[i,:3,:3] = COL.dot(extrinsics_new[i,:3,:3]).dot(COL.T)
