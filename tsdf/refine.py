@@ -360,9 +360,6 @@ if __name__ == "__main__":
 
     np.savez('extrinsics_opt', extrinsics_opt=extrinsics_opt)
 
-    import pdb
-    pdb.set_trace()
-
 
 
 
