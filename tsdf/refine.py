@@ -64,19 +64,17 @@ class pose_refiner:
         self.scale = scales[:,1].mean()
         print("mean scale: {}".format(self.scale))
 
+        self.N = self.extrinsics.shape[0]
         COL = np.diag([1, -1, -1])
-        extra_row = np.zeros((self.extrinsics.shape[0],1,4))
-        extra_row[:,0,3] = 1
-        self.extrinsics = np.concatenate((self.extrinsics, extra_row), axis=1)
-        for i in range(self.extrinsics.shape[0]):
-            self.extrinsics[i,:3,:3] = COL.dot(self.extrinsics[i,:3,:3]).dot(COL.T)
-            self.extrinsics[i,:3,3] = COL.dot(self.extrinsics[i,:3,3])
+        for i in range(self.N):
+            self.extrinsics[i,:3,:3] = COL.dot(self.extrinsics[i,:,:3]).dot(COL.T)
+            self.extrinsics[i,:,3] = COL.dot(self.extrinsics[i,:,3])
 
-            self.extrinsics[i,:3,3] = self.extrinsics[i,:3,3]/self.scale
+            self.extrinsics[i,:,3] = self.extrinsics[i,:,3]/self.scale
 
             # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
-
-        self.N = self.extrinsics.shape[0]
+        self.extra_row = np.array([0,0,0,1])
+        
 
         self.pair_mat = None
         self.depth = None
@@ -84,6 +82,7 @@ class pose_refiner:
         self.luminance = None
         self.normals = None
         self.fresh = True
+        self.extrinsics_opt = None
 
         self.iter = 0
 
@@ -96,12 +95,12 @@ class pose_refiner:
         # iterate over all possible pairs
         print("finding valid frame pairs..")
         for i in tqdm(range(self.N)):
-            Ti = self.extrinsics[i]
+            Ti = np.vstack((self.extrinsics[i], self.extra_row))
             for j in range(self.N):
                 if i == j:
                     continue
                 # check this pair for angle
-                Tj = self.extrinsics[j]
+                Tj = np.vstack((self.extrinsics[j], self.extra_row))
                 ez = np.array([0,0,1])
                 viewi = Ti[:3,:3].dot(ez)
                 viewj = Tj[:3,:3].dot(ez)
@@ -261,11 +260,13 @@ class pose_refiner:
         wgeo = wphoto = 0.5
         egeo = ephoto = 0
         for i in tqdm(range(self.N)):
-            Ti = extr[i]
+            Ti = np.vstack((extr[i], self.extra_row))
+            # Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
-                Tj = extr[j]
+                # Tj = extr[j]
+                Tj = np.vstack((extr[j], self.extra_row))
                 egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj])
                 egeo += egeo_n
                 ephoto += ephoto_n
@@ -281,11 +282,13 @@ class pose_refiner:
         pool = Pool(12)
         params = []
         for i in range(self.N):
-            Ti = extr[i]
+            Ti = np.vstack((extr[i], self.extra_row))
+            # Ti = extr[i]
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
-                Tj = extr[j]
+                # Tj = extr[j]
+                Tj = np.vstack((extr[j], self.extra_row))
                 params.append([i, j, Ti, Tj])
 
         energies = pool.map(self.total_energy_pair, params)
@@ -316,13 +319,16 @@ class pose_refiner:
         self.preprocess_data()
         self.filter_framepairs()
 
-    def optim(self):
-        return minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":1})
+    def optim(self, maxIter=1):
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":maxIter})
+        self.extrinsics_opt = self.minimizer.x
+
+        return self.extrinsics_opt
 
 stride = 10
-fresh = True
+fresh = False
 if __name__ == "__main__":
-    peter = True
+    peter = False
 
     color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_down_png/"
     # color_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/color_full/"
@@ -339,9 +345,7 @@ if __name__ == "__main__":
     refiner.fresh = fresh
     refiner.prepare()
     refiner.resize_stride(5)
-    res = refiner.optim()
-
-    extrinsics_new = res.x
+    extrinsics_new = refiner.optim()
 
     COL = np.diag([1, -1, -1])
     for i in range(extrinsics_new.shape[0]):
