@@ -86,11 +86,12 @@ class pose_refiner:
 
         self.iter = 0
 
-    def filter_framepairs(self):
+    def filter_framepairs(self, save=True):
         if not self.fresh and os.path.isfile("framepairs.npz"):
             framepairs = np.load('framepairs.npz')
             self.pair_mat = framepairs['pair_mat']
-            return
+            if self.pair_mat.shape[0] == self.N:
+                return
         self.pair_mat = np.zeros((self.N, self.N))
         # iterate over all possible pairs
         print("finding valid frame pairs..")
@@ -129,7 +130,8 @@ class pose_refiner:
                 
                 self.pair_mat[i,j] = 1
         
-        np.savez('framepairs', pair_mat=self.pair_mat)
+        if save:
+            np.savez('framepairs', pair_mat=self.pair_mat)
         print('found {} framepairs'.format(int(np.sum(self.pair_mat))))
 
     def load_data(self):
@@ -161,7 +163,8 @@ class pose_refiner:
             preprocessed_data = np.load('preprocessed_data.npz')
             self.luminance = preprocessed_data["luminance"]
             self.normals = preprocessed_data["normals"]
-            return
+            if self.luminance.shape[0] == self.N:
+                return
         lumConst = np.array([0.2126,0.7152,0.0722])
         lumi = []
         nrmls = []
@@ -311,9 +314,8 @@ class pose_refiner:
         self.luminance = self.luminance[::stride]
         self.normals = self.normals[::stride]
 
-        self.fresh = True
         self.N = self.extrinsics.shape[0]
-        self.filter_framepairs()
+        self.filter_framepairs(save=False)
 
     def prepare(self):
         self.load_data()
