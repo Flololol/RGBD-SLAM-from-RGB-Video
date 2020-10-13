@@ -308,21 +308,21 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self, maxIter=1):
-        eps_euler = 5 #5degree step size in terms of rotation
-        eps_translation = 0.05 #this is a relative value that depends on the depth scale refiner.scale
+        eps_euler = .5 #5degree step size in terms of rotation
+        eps_translation = .5 #this is a relative value that depends on the depth scale refiner.scale
 
         eps = np.empty_like(self.extrinsics_euler)
         eps[:,:3] = eps_euler
         eps[:,3:] = eps_translation
         eps = eps.reshape(-1)
 
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler, method=None, options={"maxiter":maxIter, "eps":eps})
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), method=None, options={"maxiter":maxIter, "eps":eps})
 
         self.extrinsics_euler_opt = self.minimizer.x.reshape(self.extrinsics_euler.shape)
         self.extrinsics_opt = np.empty_like(self.extrinsics)
         for i in range(self.extrinsics_euler_opt.shape[0]):
             rotation = R.from_euler('xyz', self.extrinsics_euler_opt[i,:3], degrees=True).as_matrix()
-            self.extrinsics_euler_opt[i] = np.hstack((rotation, self.extrinsics_euler_opt[i,3:,np.newaxis]))
+            self.extrinsics_opt[i] = np.hstack((rotation, self.extrinsics_euler_opt[i,3:,np.newaxis]))
 
         return self.extrinsics_opt
 
