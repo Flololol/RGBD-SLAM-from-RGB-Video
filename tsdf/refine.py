@@ -21,9 +21,9 @@ if __name__ == "__main__":
     refiner.prepare()
     refiner.resize_stride(stride)
 
-    print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics)))
+    print('total energy with x0: {}'.format(refiner.total_energy_mt(refiner.extrinsics_euler)))
     extrinsics_opt = refiner.optim()
-    print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_opt)))
+    print('total energy after opt: {}'.format(refiner.total_energy_mt(refiner.extrinsics_euler_opt)))
 
     # COL = np.diag([1, -1, -1])
     # for i in range(refiner.N):
