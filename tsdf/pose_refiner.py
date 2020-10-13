@@ -308,7 +308,15 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self, maxIter=1):
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler, method=None, options={"maxiter":maxIter, "eps":0.05}, )
+        eps_euler = 5 #5degree step size in terms of rotation
+        eps_translation = 0.05 #this is a relative value that depends on the depth scale refiner.scale
+
+        eps = np.empty_like(self.extrinsics)
+        eps[:,:3] = eps_euler
+        eps[:,3:] = eps_translation
+
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler, method=None, options={"maxiter":maxIter, "eps":eps})
+        
         extrinsics_opt = self.minimizer.x.reshape(self.extrinsics_euler.shape)
         self.extrinsics_opt = np.empty_like(self.extrinsics)
         for i in range(extrinsics_opt.shape[0]):
