@@ -40,9 +40,8 @@ if __name__ == "__main__":
 
     #vectorized diks transformation
     diks = (refiner.diks * dpt1[:, :, np.newaxis]).reshape(-1,3)
-    # tmp = np.ones((diks.shape[0]))
     diks = np.concatenate((diks, np.ones((diks.shape[0],1))), axis=1)
-    # diks = np.concatenate((diks, tmp[:,np.newaxis]), axis=1)
+
     diks = np.tensordot(T12, diks, axes=([1],[1])).T
     diks = (diks[:,:3] / diks[:,2][:,np.newaxis]).reshape(img1.shape)
 
@@ -62,33 +61,6 @@ if __name__ == "__main__":
                 imgY = int(pos[1])
                 transformed[imgY, imgX] = img1[y, x]
                 img2[imgY, imgX] = img1[y, x]
-            
-            # curDepth = dpt1[y, x]
-            # curRGB = img1[y, x]
-            # dik = refiner.diks[y, x] * curDepth
-
-            # dik = np.append(dik, 1)
-            # print(dik)
-            # print(T1.dot(dik))
-            # testT1[y,x] = T1.dot(dik)
-            # tgt = np.linalg.inv(T2).dot(T1.dot(dik))
-            # testT2[y,x] = tgt
-            # print(tgt)
-            # exit()
-            # tgt = np.delete(tgt, 3)
-            # print(tgt)
-            # imgPos = refiner.intrinsics.dot(tgt)
-            # testPos[y,x] = imgPos
-            # imgPos = imgPos / imgPos[-1]
-            # testScales[y,x] = imgPos
-            # print(imgPos)
-            # imgX = int(imgPos[0])
-            # imgY = int(imgPos[1])
-            # if imgX > 0 and imgX < img2.shape[1]:
-            #     if imgY > 0 and imgY < img2.shape[0]:
-            #         transformed[imgY, imgX] = curRGB
-            #         
-            # exit()
     plt.imshow(img1)
     plt.show()
     plt.imshow(transformed)
