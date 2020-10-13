@@ -47,7 +47,7 @@ class pose_refiner:
 
         self.iter = 0
 
-    def filter_framepairs(self, save=True):
+    def filter_framepairs(self, overlap=0.2, save=True):
         if not self.fresh and os.path.isfile("framepairs.npz"):
             framepairs = np.load('framepairs.npz')
             self.pair_mat = framepairs['pair_mat']
@@ -63,6 +63,7 @@ class pose_refiner:
                     continue
                 # check this pair for angle
                 Tj = np.vstack((self.extrinsics[j], np.array([0,0,0,1])))
+                Tj_inv = np.linalg.inv(Tj)
                 ez = np.array([0,0,1])
                 viewi = Ti[:3,:3].dot(ez)
                 viewj = Tj[:3,:3].dot(ez)
@@ -70,25 +71,22 @@ class pose_refiner:
                 angle = np.arccos(dotprod)
                 if angle > self.ang_thresh:
                     continue
-                # check this pair for overlap
-                diks = self.diks * self.depth[i, :, :, np.newaxis]
-                overlap = False
-                for px in range(self.size[0]):
-                    for py in range(self.size[1]):
-                        dik = np.append(diks[py, px], 1)
 
-                        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-                        dim3_2 = dim3_2[:-1]
-                        dim2 = self.intrinsics.dot(dim3_2)
-                        dim2 = dim2 / dim2[-1]
-                        dim2 = dim2[:-1]
+                # check this pair for overlap vectorized
+                diks = (self.diks * self.depth[i, :, :, np.newaxis]).reshape(-1,3)
+                tmp = np.ones((diks.shape[0]))
+                diks = np.concatenate((diks, tmp[:,np.newaxis]), axis=1)
 
-                        if (dim2[0] > 0 and dim2[0] < self.size[0]) and (dim2[1] > 0 and dim2[1] < self.size[1]):
-                            overlap = True
-                            break
-                    if overlap:
-                        break
-                if not overlap:
+                diks = np.tensordot(Ti,diks,axes=([1],[1])).T
+                diks = np.tensordot(Tj_inv, diks, axes=([1],[1])).T
+                diks = np.tensordot(self.intrinsics, diks[:,:3], axes=([1],[1])).T
+                diks = (diks / diks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3)
+                xLim = np.logical_and(diks[:,:,0]>0, diks[:,:,0]<self.size[0])
+                yLim = np.logical_and(diks[:,:,1]>0, diks[:,:,1]<self.size[1])
+                lim = np.logical_and(xLim, yLim)
+                frac = np.sum(lim) / np.multiply(*self.size)
+
+                if frac < overlap:
                     continue
                 
                 self.pair_mat[i,j] = 1
@@ -137,49 +135,31 @@ class pose_refiner:
             lum = np.matmul(self.RGB[i], lumConst)
             lum = np.stack(np.gradient(lum)[::-1], axis=2) #inverting list order because we want x(width),y(heigth) gradient but images come in y(height),x(width)
             lumi.append(lum)
-            # norm = np.linalg.norm(lum, axis=2)
-            # plt.imshow(norm)
-            # plt.show()
-            # exit()
 
-            # dpt = self.depth[i]
-            # print(dpt.shape)
+
             diks = self.diks * self.depth[i,:,:,np.newaxis]
-
             ptcld = o3d.geometry.PointCloud()
             ptcld.points = o3d.utility.Vector3dVector(diks.reshape(-1,3))
-
             ptcld.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.15, max_nn=25))
             ptcld.orient_normals_towards_camera_location()
 
             nrml = np.asarray(ptcld.normals).reshape(self.size[1], self.size[0],3)
             nrmls.append(nrml)
 
-            # o3d.visualization.draw_geometries([ptcld], point_show_normal=True)
-            # exit()
-            
-            # dks = diks.reshape(-1,3)
-            # nrm = nrml.reshape(-1,3)
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111, projection='3d')
-            # ax.plot(dks[:,0], dks[:,1], dks[:,2], 'r', markersize=1)
-            # ax.quiver(dks[:,0], dks[:,1], dks[:,2], nrm[:,0], nrm[:,1], nrm[:,2], length=0.04)
-            # plt.show()
-            # exit()
-
         self.luminance = np.array(lumi)
         self.normals = np.array(nrmls)
 
         np.savez('preprocessed_data', luminance=self.luminance, normals=self.normals)
 
-    def photo_energy(self, i, j, py, px, Ti, Tj, dik):
+    def photo_energy(self, i, j, py, px, djk):
         left = self.luminance[i, py, px]
 
-        dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        dim3 = dim3[:-1]
-        dim2 = self.intrinsics.dot(dim3)
-        dim2 = dim2 / dim2[-1]
-        dim2 = dim2[:-1]
+        # dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        # dim3 = dim3[:-1]
+        # dim2 = self.intrinsics.dot(dim3)
+        # dim2 = dim2 / dim2[-1]
+        # dim2 = dim2[:-1]
+        dim2 = djk[:-1]
 
         dim2_int = np.rint(dim2).astype(int)
         if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
@@ -190,14 +170,15 @@ class pose_refiner:
         energy = np.sum((left - right)**2)
         return energy
 
-    def geo_energy(self, i, j, py, px, Ti, Tj, dik):
+    def geo_energy(self, i, j, py, px, Ti, Tj, dik, djk):
         normal = self.normals[i, py, px]
 
-        dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        dim3_2 = dim3_2[:-1]
-        dim2 = self.intrinsics.dot(dim3_2)
-        dim2 = dim2 / dim2[-1]
-        dim2 = dim2[:-1]
+        # dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
+        # dim3_2 = dim3_2[:-1]
+        # dim2 = self.intrinsics.dot(dim3_2)
+        # dim2 = dim2 / dim2[-1]
+        # dim2 = dim2[:-1]
+        dim2 = djk[:-1]
 
         dim2_int = np.rint(dim2).astype(int)
         if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
@@ -206,20 +187,20 @@ class pose_refiner:
         depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2_int[1], dim2_int[0]]])
         dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
         dim3_2 = np.append(dim3_2, 1)
-
         depth_diff = dik - np.linalg.inv(Ti).dot(Tj.dot(dim3_2))
         energy = ((normal.T).dot(depth_diff[:3]))**2
         return energy
 
     def total_energy_pair(self, params):
-        i, j, Ti, Tj = params
-        diks = self.diks * self.depth[i, :, :, np.newaxis]
+        i, j, Ti, Tj, diks, djks = params
+        # diks = self.diks * self.depth[i, :, :, np.newaxis]
         egeo = ephoto = 0
         for px in range(self.size[0]):
             for py in range(self.size[1]):
-                dik = np.append(diks[py, px], 1)
-                egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik)
-                ephoto += self.photo_energy(i, j, py, px, Ti, Tj, dik)
+                dik = np.append(diks[py, px],1)
+                djk = djks[py, px]
+                ephoto += self.photo_energy(i, j, py, px, djk)
+                egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik, djk)
         return egeo, ephoto
 
     def total_energy(self, extr):
@@ -229,13 +210,23 @@ class pose_refiner:
         egeo = ephoto = 0
         for i in tqdm(range(self.N)):
             Ti = np.vstack((extr[i], np.array([0,0,0,1])))
-            # Ti = extr[i]
+
+            diks = (self.diks * self.depth[i, :, :, np.newaxis])
+            Tiks = diks.reshape(-1,3)
+            tmp = np.ones((Tiks.shape[0]))
+            Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
+            Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
+
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
-                # Tj = extr[j]
                 Tj = np.vstack((extr[j], np.array([0,0,0,1])))
-                egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj])
+                Tj_inv = np.linalg.inv(Tj)
+                
+                djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
+                djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
+                djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
+                egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj, diks, djks])
                 egeo += egeo_n
                 ephoto += ephoto_n
 
@@ -251,13 +242,23 @@ class pose_refiner:
         params = []
         for i in range(self.N):
             Ti = np.vstack((extr[i], np.array([0,0,0,1])))
-            # Ti = extr[i]
+
+            diks = (self.diks * self.depth[i, :, :, np.newaxis])
+            Tiks = diks.reshape(-1,3)
+            tmp = np.ones((Tiks.shape[0]))
+            Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
+            Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
+            
             for j in range(self.N):
                 if self.pair_mat[i,j] != 1:
                     continue
-                # Tj = extr[j]
                 Tj = np.vstack((extr[j], np.array([0,0,0,1])))
-                params.append([i, j, Ti, Tj])
+                Tj_inv = np.linalg.inv(Tj)
+                
+                djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
+                djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
+                djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
+                params.append([i, j, Ti, Tj, diks, djks])
 
         energies = pool.map(self.total_energy_pair, params)
         pool.close()

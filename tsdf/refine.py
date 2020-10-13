@@ -2,8 +2,8 @@ import numpy as np
 from pose_refiner import pose_refiner
 
 stride = 10
-fresh = False
-peter = True
+fresh = True
+peter = False
 
 if __name__ == "__main__":
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
