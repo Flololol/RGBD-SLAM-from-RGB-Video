@@ -267,8 +267,8 @@ class pose_refiner:
         return params
 
     def total_energy_mt(self, extr):
-        self.iter += 1
-        print("function call #{}".format(self.iter))
+        # self.iter += 1
+        # print("function call #{}".format(self.iter))
         extr = extr.reshape(self.extrinsics_euler.shape)
         wgeo = wphoto = 0.5
 
@@ -287,6 +287,7 @@ class pose_refiner:
         ephoto = energies[1] / energies[2]
         
         total = wphoto * ephoto + wgeo * egeo
+        # print("E: {}, call #: {}".format(total, self.iter))
         return total
 
     def resize_stride(self, stride):
@@ -308,15 +309,15 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self, maxIter=1):
-        eps_euler = .5 #5degree step size in terms of rotation
-        eps_translation = .5 #this is a relative value that depends on the depth scale refiner.scale
+        eps_euler = 0.25 #x degree step size in terms of rotation
+        eps_translation = .005 #this is a relative value that depends on the depth scale refiner.scale
 
         eps = np.empty_like(self.extrinsics_euler)
         eps[:,:3] = eps_euler
         eps[:,3:] = eps_translation
         eps = eps.reshape(-1)
 
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), method=None, options={"maxiter":maxIter, "eps":eps})
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), method=None, options={"disp":True,"maxiter":maxIter, "eps":eps})
 
         self.extrinsics_euler_opt = self.minimizer.x.reshape(self.extrinsics_euler.shape)
         self.extrinsics_opt = np.empty_like(self.extrinsics)
