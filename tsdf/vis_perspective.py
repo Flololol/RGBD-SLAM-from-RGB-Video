@@ -34,15 +34,17 @@ if __name__ == "__main__":
     T2_inv = np.linalg.inv(T2)
 
     transformed = np.zeros_like(img1)
+    
+    T12 = T2_inv.dot(T1)
+    T12[:3,:4] = refiner.intrinsics.dot(T12[:3,:4])
 
     #vectorized diks transformation
     diks = (refiner.diks * dpt1[:, :, np.newaxis]).reshape(-1,3)
-    tmp = np.ones((diks.shape[0]))
-    diks = np.concatenate((diks, tmp[:,np.newaxis]), axis=1)
-    diks = np.tensordot(T1,diks,axes=([1],[1])).T
-    diks = np.tensordot(T2_inv, diks, axes=([1],[1])).T
-    diks = np.tensordot(refiner.intrinsics, diks[:,:3], axes=([1],[1])).T
-    diks = (diks / diks[:,2][:,np.newaxis]).reshape(img1.shape)
+    # tmp = np.ones((diks.shape[0]))
+    diks = np.concatenate((diks, np.ones((diks.shape[0],1))), axis=1)
+    # diks = np.concatenate((diks, tmp[:,np.newaxis]), axis=1)
+    diks = np.tensordot(T12, diks, axes=([1],[1])).T
+    diks = (diks[:,:3] / diks[:,2][:,np.newaxis]).reshape(img1.shape)
 
     xLim = np.logical_and(diks[:,:,0]>0, diks[:,:,0]<size[0])
     yLim = np.logical_and(diks[:,:,1]>0, diks[:,:,1]<size[1])
@@ -59,6 +61,7 @@ if __name__ == "__main__":
                 imgX = int(pos[0])
                 imgY = int(pos[1])
                 transformed[imgY, imgX] = img1[y, x]
+                img2[imgY, imgX] = img1[y, x]
             
             # curDepth = dpt1[y, x]
             # curRGB = img1[y, x]
@@ -84,16 +87,8 @@ if __name__ == "__main__":
             # if imgX > 0 and imgX < img2.shape[1]:
             #     if imgY > 0 and imgY < img2.shape[0]:
             #         transformed[imgY, imgX] = curRGB
-            #         img2[imgY, imgX] = curRGB
+            #         
             # exit()
-    # testT1 = np.array(testT1)
-    # testT2 = np.array(testT2)
-    # print(testT1.shape, testT2.shape)
-    # print(np.allclose(result, testT1))
-    # print(np.allclose(result2, testT2))
-    # print(np.allclose(result3, testPos))
-    # print(np.allclose(result4, testScales))
-    # exit()
     plt.imshow(img1)
     plt.show()
     plt.imshow(transformed)

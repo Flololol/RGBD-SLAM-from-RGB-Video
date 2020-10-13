@@ -242,27 +242,28 @@ class pose_refiner:
     def transformation_mt(self, inp):
         extr, i = inp
 
-        rotation = R.from_euler('xyz', extr[i,:3], degrees=True).as_matrix()
-        Ti = np.hstack((rotation, extr[i,3:,np.newaxis]))
-        
-        Ti = np.vstack((Ti, np.array([0,0,0,1])))
-        diks = (self.diks * self.depth[i, :, :, np.newaxis])
-        Tiks = diks.reshape(-1,3)
-        tmp = np.ones((Tiks.shape[0]))
-        Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
-        Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
+        roti = R.from_euler('xyz', extr[i,:3], degrees=True).as_matrix()
+        Ti = np.identity(4)
+        Ti[:3,:] = np.hstack((roti, extr[i,3:,np.newaxis]))
+
+        diks = self.diks * self.depth[i, :, :, np.newaxis]
+        diks1 = diks.reshape(-1,3)
+        diks1 = np.concatenate((diks1, np.ones((diks1.shape[0],1))), axis=1)
+    
         params = []
         for j in range(self.N):
             if self.pair_mat[i,j] != 1:
                 continue
-            rotation = R.from_euler('xyz', extr[j,:3], degrees=True).as_matrix()
-            Tj = np.hstack((rotation, extr[j,3:,np.newaxis]))
-            Tj = np.vstack((Tj, np.array([0,0,0,1])))
-            Tj_inv = np.linalg.inv(Tj)
-            
-            djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
-            djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
-            djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
+            rotj = R.from_euler('xyz', extr[j,:3], degrees=True).as_matrix()
+            Tj = np.identity(4)
+            Tj[:3,:] = np.hstack((rotj, extr[j,3:,np.newaxis]))
+
+            Tij = np.linalg.inv(Tj).dot(Ti)
+            Tij[:3,:] = self.intrinsics.dot(Tij[:3,:])
+
+            djks = np.tensordot(Tij, diks1, axes=([1],[1])).T
+            djks = (djks[:,:3] / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
+
             params.append([i, j, Ti, Tj, diks, djks])
         return params
 
