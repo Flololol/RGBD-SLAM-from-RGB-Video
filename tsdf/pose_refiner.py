@@ -275,9 +275,7 @@ class pose_refiner:
         energies = pool.map(self.total_energy_pair, params)
         pool.close()
         pool.join()
-        print(np.array(energies).shape)
-        energies = np.sum(np.array(energies), axis=1)
-        print(energies.shape)
+        energies = np.sum(np.array(energies), axis=0)
         egeo = energies[0] / energies[2]
         ephoto = energies[1] / energies[2]
         
