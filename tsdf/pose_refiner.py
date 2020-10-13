@@ -233,32 +233,41 @@ class pose_refiner:
         total = wphoto * ephoto + wgeo * egeo
         return total
     
+    def transformation_mt(self, inp):
+        extr, i = inp
+        params = []
+        Ti = np.vstack((extr[i], np.array([0,0,0,1])))
+
+        diks = (self.diks * self.depth[i, :, :, np.newaxis])
+        Tiks = diks.reshape(-1,3)
+        tmp = np.ones((Tiks.shape[0]))
+        Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
+        Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
+        
+        for j in range(self.N):
+            if self.pair_mat[i,j] != 1:
+                continue
+            Tj = np.vstack((extr[j], np.array([0,0,0,1])))
+            Tj_inv = np.linalg.inv(Tj)
+            
+            djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
+            djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
+            djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
+            params.append([i, j, Ti, Tj, diks, djks])
+        return params
+
     def total_energy_mt(self, extr):
         self.iter += 1
         print("function call #{}".format(self.iter))
         extr = extr.reshape(self.extrinsics.shape)
         wgeo = wphoto = 0.5
         pool = Pool(12)
-        params = []
-        for i in range(self.N):
-            Ti = np.vstack((extr[i], np.array([0,0,0,1])))
 
-            diks = (self.diks * self.depth[i, :, :, np.newaxis])
-            Tiks = diks.reshape(-1,3)
-            tmp = np.ones((Tiks.shape[0]))
-            Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
-            Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
-            
-            for j in range(self.N):
-                if self.pair_mat[i,j] != 1:
-                    continue
-                Tj = np.vstack((extr[j], np.array([0,0,0,1])))
-                Tj_inv = np.linalg.inv(Tj)
-                
-                djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
-                djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
-                djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
-                params.append([i, j, Ti, Tj, diks, djks])
+        rng = list(np.arange(self.N))
+        rng = [(extr, i) for i in rng]
+        
+        params = pool.map(self.transformation_mt, rng)
+        params = [itm for lst in params for itm in lst]
 
         energies = pool.map(self.total_energy_pair, params)
         pool.close()
