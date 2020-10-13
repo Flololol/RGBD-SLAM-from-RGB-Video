@@ -30,7 +30,6 @@ if __name__ == "__main__":
             extrinsics_opt = extr_opt["extrinsics_opt"]
         refiner.fresh = False
         refiner.preprocess_data()
-        print(int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]+1))
         refiner.resize_stride(int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]+1))
         extrinsics = extrinsics_opt
         # extrinsics = refiner.extrinsics
