@@ -6,6 +6,7 @@ import os
 from tqdm import tqdm
 from multiprocessing import Pool
 import open3d as o3d
+from scipy.spatial.transform import Rotation as R
 
 class pose_refiner:
     def __init__(self, color_dir, depth_dir, metadata, size=(80,60)):
@@ -28,13 +29,15 @@ class pose_refiner:
         # print("mean scale: {}".format(self.scale))
 
         self.N = self.extrinsics.shape[0]
+        self.extrinsics_euler = np.empty((self.N, 6))
         COL = np.diag([1, -1, -1])
         for i in range(self.N):
-            self.extrinsics[i,:3,:3] = COL.dot(self.extrinsics[i,:,:3]).dot(COL.T)
-            self.extrinsics[i,:,3] = COL.dot(self.extrinsics[i,:,3])
-
-            self.extrinsics[i,:,3] = self.extrinsics[i,:,3]/self.scale
-
+            rotation = COL.dot(self.extrinsics[i,:,:3]).dot(COL.T)
+            euler = R.from_matrix(rotation).as_euler('xyz', degrees=True)
+            self.extrinsics[i,:3,:3] = rotation
+            translation = COL.dot(self.extrinsics[i,:,3])/self.scale
+            self.extrinsics[i,:,3] = translation
+            self.extrinsics_euler[i] = np.append(euler, translation)
             # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
 
         self.pair_mat = None
@@ -205,7 +208,7 @@ class pose_refiner:
 
     def total_energy(self, extr):
         print("function call!")
-        extr = extr.reshape(self.extrinsics.shape)
+        extr = extr.reshape(self.extrinsics_euler.shape)
         wgeo = wphoto = 0.5
         egeo = ephoto = valid = 0
         for i in tqdm(range(self.N)):
@@ -238,19 +241,23 @@ class pose_refiner:
     
     def transformation_mt(self, inp):
         extr, i = inp
-        params = []
-        Ti = np.vstack((extr[i], np.array([0,0,0,1])))
 
+        rotation = R.from_euler('xyz', extr[i,:3], degrees=True).as_matrix()
+        Ti = np.hstack((rotation, extr[i,3:,np.newaxis]))
+        
+        Ti = np.vstack((Ti, np.array([0,0,0,1])))
         diks = (self.diks * self.depth[i, :, :, np.newaxis])
         Tiks = diks.reshape(-1,3)
         tmp = np.ones((Tiks.shape[0]))
         Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
         Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
-        
+        params = []
         for j in range(self.N):
             if self.pair_mat[i,j] != 1:
                 continue
-            Tj = np.vstack((extr[j], np.array([0,0,0,1])))
+            rotation = R.from_euler('xyz', extr[j,:3], degrees=True).as_matrix()
+            Tj = np.hstack((rotation, extr[j,3:,np.newaxis]))
+            Tj = np.vstack((Tj, np.array([0,0,0,1])))
             Tj_inv = np.linalg.inv(Tj)
             
             djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
@@ -262,13 +269,13 @@ class pose_refiner:
     def total_energy_mt(self, extr):
         self.iter += 1
         print("function call #{}".format(self.iter))
-        extr = extr.reshape(self.extrinsics.shape)
+        extr = extr.reshape(self.extrinsics_euler.shape)
         wgeo = wphoto = 0.5
-        pool = Pool(12)
 
         rng = list(np.arange(self.N))
         rng = [(extr, i) for i in rng]
-        
+
+        pool = Pool(12)
         params = pool.map(self.transformation_mt, rng)
         params = [itm for lst in params for itm in lst]
 
@@ -284,6 +291,7 @@ class pose_refiner:
 
     def resize_stride(self, stride):
         self.extrinsics = self.extrinsics[::stride]
+        self.extrinsics_euler = self.extrinsics_euler[::stride]
         
         self.RGB = self.RGB[::stride]
         self.depth = self.depth[::stride]
@@ -300,8 +308,12 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self, maxIter=1):
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":maxIter, "eps":0.05}, )
-        self.extrinsics_opt = self.minimizer.x.reshape(self.extrinsics.shape)
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler, method=None, options={"maxiter":maxIter, "eps":0.05}, )
+        extrinsics_opt = self.minimizer.x.reshape(self.extrinsics_euler.shape)
+        self.extrinsics_opt = np.empty_like(self.extrinsics)
+        for i in range(extrinsics_opt.shape[0]):
+            rotation = R.from_euler('xyz', extrinsics_opt[i,:3], degrees=True).as_matrix()
+            self.extrinsics_opt[i] = np.hstack((rotation, extrinsics_opt[i,3:,np.newaxis]))
 
         return self.extrinsics_opt
 
