@@ -267,8 +267,8 @@ class pose_refiner:
         return params
 
     def total_energy_mt(self, extr):
-        # self.iter += 1
-        # print("function call #{}".format(self.iter))
+        self.iter += 1
+        print("call #{}".format(self.iter), end='\r')
         extr = extr.reshape(self.extrinsics_euler.shape)
         wgeo = wphoto = 0.5
 
@@ -308,9 +308,8 @@ class pose_refiner:
         self.preprocess_data()
         self.filter_framepairs()
 
-    def optim(self, maxIter=1):
-        eps_euler = 0.25 #x degree step size in terms of rotation
-        eps_translation = .005 #this is a relative value that depends on the depth scale refiner.scale
+    def optim(self, eps_euler=.2, eps_translation=.005, maxIter=1):
+        print('starting optim() with ee: {:.2f} & et: {:.4f}'.format(eps_euler, eps_translation))
 
         eps = np.empty_like(self.extrinsics_euler)
         eps[:,:3] = eps_euler

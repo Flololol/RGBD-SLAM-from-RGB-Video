@@ -8,7 +8,8 @@ include_opt = True
 size = (1280, 720)
 
 if __name__ == "__main__":
-    peter = True
+    file_name = "extrinsics_opt_.25.005"
+    extr_opt = "./{}.npz".format(file_name)
 
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
@@ -26,7 +27,6 @@ if __name__ == "__main__":
     extrinsics = refiner.extrinsics
     old_N = refiner.extrinsics.shape[0]
 
-    extr_opt = "./extrinsics_opt.npz"
     if include_opt:
         with np.load(extr_opt) as extr_opt:
             extrinsics_opt = extr_opt["extrinsics_opt"]
