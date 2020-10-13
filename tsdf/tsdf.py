@@ -5,7 +5,7 @@ from PIL import Image
 from pose_refiner import pose_refiner
 
 peter = True
-use_opt = False
+use_opt = True
 img1_idx = 0
 size = (1920, 1080)
 
@@ -28,6 +28,8 @@ if __name__ == "__main__":
     if use_opt:
         with np.load(extr_opt) as extr_opt:
             extrinsics_opt = extr_opt["extrinsics_opt"]
+        refiner.fresh = False
+        refiner.preprocess_data()
         refiner.resize_stride(int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]))
         extrinsics = extrinsics_opt
 

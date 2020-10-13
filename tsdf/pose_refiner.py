@@ -151,7 +151,7 @@ class pose_refiner:
 
         np.savez('preprocessed_data', luminance=self.luminance, normals=self.normals)
 
-    def photo_energy(self, i, j, py, px, djk):
+    def photo_energy(self, i, j, py, px, dim2, dim2_int):
         left = self.luminance[i, py, px]
 
         # dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
@@ -159,18 +159,13 @@ class pose_refiner:
         # dim2 = self.intrinsics.dot(dim3)
         # dim2 = dim2 / dim2[-1]
         # dim2 = dim2[:-1]
-        dim2 = djk[:-1]
-
-        dim2_int = np.rint(dim2).astype(int)
-        if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
-            return 0
 
         right = self.luminance[j, dim2_int[1], dim2_int[0]]
 
         energy = np.sum((left - right)**2)
         return energy
 
-    def geo_energy(self, i, j, py, px, Ti, Tj, dik, djk):
+    def geo_energy(self, i, j, py, px, Ti, Tj, dik, dim2, dim2_int):
         normal = self.normals[i, py, px]
 
         # dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
@@ -178,11 +173,6 @@ class pose_refiner:
         # dim2 = self.intrinsics.dot(dim3_2)
         # dim2 = dim2 / dim2[-1]
         # dim2 = dim2[:-1]
-        dim2 = djk[:-1]
-
-        dim2_int = np.rint(dim2).astype(int)
-        if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
-            return 0
 
         depth_probed_j = np.array([dim2[0], dim2[1], self.depth[j, dim2_int[1], dim2_int[0]]])
         dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
@@ -195,19 +185,29 @@ class pose_refiner:
         i, j, Ti, Tj, diks, djks = params
         # diks = self.diks * self.depth[i, :, :, np.newaxis]
         egeo = ephoto = 0
+        valid = self.size[0]*self.size[1]
         for px in range(self.size[0]):
             for py in range(self.size[1]):
-                dik = np.append(diks[py, px],1)
                 djk = djks[py, px]
-                ephoto += self.photo_energy(i, j, py, px, djk)
-                egeo += self.geo_energy(i, j, py, px, Ti, Tj, dik, djk)
-        return egeo, ephoto
+                dim2 = djk[:-1]
+                dim2_int = np.rint(dim2).astype(int)
+                if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
+                    valid -= 1
+                    continue
+
+                dik = np.append(diks[py, px],1)
+                ephoto_new = self.photo_energy(i, j, py, px, dim2, dim2_int)
+                egeo_new = self.geo_energy(i, j, py, px, Ti, Tj, dik, dim2, dim2_int)
+                ephoto += ephoto_new
+                egeo += egeo_new
+                
+        return egeo, ephoto, valid
 
     def total_energy(self, extr):
         print("function call!")
         extr = extr.reshape(self.extrinsics.shape)
         wgeo = wphoto = 0.5
-        egeo = ephoto = 0
+        egeo = ephoto = valid = 0
         for i in tqdm(range(self.N)):
             Ti = np.vstack((extr[i], np.array([0,0,0,1])))
 
@@ -226,10 +226,13 @@ class pose_refiner:
                 djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
                 djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
                 djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
-                egeo_n, ephoto_n = self.total_energy_pair([i, j, Ti, Tj, diks, djks])
+                egeo_n, ephoto_n, valid_n = self.total_energy_pair([i, j, Ti, Tj, diks, djks])
                 egeo += egeo_n
                 ephoto += ephoto_n
+                valid += valid_n
 
+        egeo /= valid
+        ephoto /= valid
         total = wphoto * ephoto + wgeo * egeo
         return total
     
@@ -272,10 +275,12 @@ class pose_refiner:
         energies = pool.map(self.total_energy_pair, params)
         pool.close()
         pool.join()
+        print(np.array(energies).shape)
         energies = np.sum(np.array(energies), axis=1)
-        egeo = energies[0]
-        ephoto = energies[1]
-
+        print(energies.shape)
+        egeo = energies[0] / energies[2]
+        ephoto = energies[1] / energies[2]
+        
         total = wphoto * ephoto + wgeo * egeo
         return total
 
@@ -297,7 +302,7 @@ class pose_refiner:
         self.filter_framepairs()
 
     def optim(self, maxIter=1):
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":maxIter})
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics, method=None, options={"maxiter":maxIter, "eps":0.05}, )
         self.extrinsics_opt = self.minimizer.x.reshape(self.extrinsics.shape)
 
         return self.extrinsics_opt
