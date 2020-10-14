@@ -195,7 +195,7 @@ class pose_refiner:
                 dim2_int = np.rint(dim2).astype(int)
                 if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
                     continue
-                cut = 5
+                cut = 0
                 if (px < cut or py < cut) or (px >= self.size[0]-cut or py >= self.size[1]-cut):
                     continue
                 valid[self.size[0]*py+px] = 1
