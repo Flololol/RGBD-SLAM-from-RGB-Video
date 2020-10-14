@@ -23,10 +23,7 @@ class pose_refiner:
             scales = meta_colmap["scales"]
         intr = resize_intrinsics(intrinsics, (intrinsics[0,2]*2, intrinsics[0,3]*2), self.size)
         self.intrinsics = np.array([[intr[0],0,intr[2]],[0,intr[1],intr[3]],[0,0,1]])
-        # self.intrinsics = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-        # self.intrinsics = np.linalg.inv(self.intrinsics)
         self.scale = scales[:,1].mean()
-        # print("mean scale: {}".format(self.scale))
 
         self.N = self.extrinsics.shape[0]
         self.extrinsics_euler = np.empty((self.N, 6))
@@ -198,6 +195,9 @@ class pose_refiner:
                 dim2_int = np.rint(dim2).astype(int)
                 if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
                     continue
+                cut = 5
+                if (px < cut or py < cut) or (px >= self.size[0]-cut or py >= self.size[1]-cut):
+                    continue
                 valid[self.size[0]*py+px] = 1
 
                 dik = np.append(diks[py, px],1)
@@ -268,10 +268,12 @@ class pose_refiner:
         return params
 
     def total_energy_mt(self, extr):
+        wgeo = 1
+        wphoto = 0.01
+
         self.iter += 1
         print("call #{}".format(self.iter), end='\r')
         extr = extr.reshape(self.extrinsics_euler.shape)
-        wgeo = wphoto = 0.5
 
         rng = list(np.arange(self.N))
         rng = [(extr, i) for i in rng]
@@ -299,8 +301,8 @@ class pose_refiner:
             egeo /= self.pair_mat.shape[0]
             ephoto /= self.pair_mat.shape[0]
         else:
-            energies = np.sum(energies, axis=2)
-            energies = np.sum(energies, axis=0)
+            energies = np.sum(energies, axis=2) #sum over all pixels for each pair
+            energies = np.sum(energies, axis=0) #sum over all pairs
             total_valid = np.sum(valid)
             egeo = energies[0] / total_valid
             ephoto = energies[1] / total_valid
