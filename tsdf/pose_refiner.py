@@ -195,7 +195,7 @@ class pose_refiner:
                 dim2_int = np.rint(dim2).astype(int)
                 if (dim2_int[0] < 0 or dim2_int[1] < 0) or (dim2_int[0] >= self.size[0] or dim2_int[1] >= self.size[1]):
                     continue
-                cut = 0
+                cut = 5
                 if (px < cut or py < cut) or (px >= self.size[0]-cut or py >= self.size[1]-cut):
                     continue
                 valid[self.size[0]*py+px] = 1
@@ -337,7 +337,8 @@ class pose_refiner:
         eps[:,3:] = eps_translation
         eps = eps.reshape(-1)
 
-        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), method=None, options={"disp":True,"maxiter":maxIter, "eps":eps})
+        self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), method = 'Nelder-Mead', options={"disp":True,"maxiter":maxIter})
+        # self.minimizer = minimize(self.total_energy_mt, self.extrinsics_euler.reshape(-1), options={"disp":True,"maxiter":maxIter, "eps":eps})
 
         self.extrinsics_euler_opt = self.minimizer.x.reshape(self.extrinsics_euler.shape)
         self.extrinsics_opt = np.empty_like(self.extrinsics)
