@@ -1,1 +1,17 @@
 \chapter{Results}
+    \section{pose optimization}
+        \begin{itemize}
+            \item show initial reconstruction without optimization (kinda shitty)
+            \item explain that for optimization reasons we now have to only look at a subset of frames (kinda like they keyframes in bundlefusion)
+            \item show initial reconstruction without and with optimization (both strided)
+            \item compare and TRY to show, that it improved it in some way
+            \item question if there even is a better set of extrinsics to combine the frames
+        \end{itemize}
+    \section{Consistent Depth}
+        \begin{itemize}
+            \item analyze quality of the depth estimation through the ground truth video
+            \item show the depth error heatmap for the ground truth data!
+            \item option1: blame everything on shitty depth (arguing, that the optimizer did the best he could)
+            \item option2: possibly present magical scale fix
+            \item option3: depth is not at fault and our optimization is just sadly not working as we want it to
+        \end{itemize}
