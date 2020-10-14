@@ -8,8 +8,10 @@ include_opt = True
 size = (1280, 720)
 
 if __name__ == "__main__":
-    file_name = "extrinsics_opt_.25.005"
-    extr_opt = "./{}.npz".format(file_name)
+    eps_euler = .1 #x degree step size in terms of rotation
+    eps_translation = .01 #this is a relative value that depends on the depth scale refiner.scale
+    extr_opt = "extrinsics_opt_{}_{}".format(eps_euler, eps_translation)
+    extr_opt = "./{}.npz".format(extr_opt)
 
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"

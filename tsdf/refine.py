@@ -3,13 +3,13 @@ from pose_refiner import pose_refiner
 
 stride = 10
 fresh = False
-peter = False
+peter = True
 
 if __name__ == "__main__":
-    eps_euler = .2 #x degree step size in terms of rotation
-    eps_translation = .005 #this is a relative value that depends on the depth scale refiner.scale
-    file_name = "extrinsics_opt_{}_{}".format(eps_euler, eps_translation)
-    print('optimizing to "{}.npz"'.format(file_name))
+    eps_euler = .05 #x degree step size in terms of rotation
+    eps_translation = .001 #this is a relative value that depends on the depth scale refiner.scale
+    extr_opt = "extrinsics_opt_{}_{}".format(eps_euler, eps_translation)
+    print('optimizing to "{}.npz"'.format(extr_opt))
 
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
@@ -37,5 +37,5 @@ if __name__ == "__main__":
     #     extrinsics_opt[i,:3,:3] = COL.dot(extrinsics_opt[i,:3,:3]).dot(COL.T)
     #     extrinsics_opt[i,:3,3] = COL.dot(extrinsics_opt[i,:3,3])
 
-    np.savez(file_name, extrinsics_opt=extrinsics_opt)
-    print('saved optimized extrinsics to "{}.npz"'.format(file_name))
+    np.savez(extr_opt, extrinsics_opt=extrinsics_opt)
+    print('saved optimized extrinsics to "{}.npz"'.format(extr_opt))

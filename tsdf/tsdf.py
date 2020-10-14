@@ -24,7 +24,10 @@ if __name__ == "__main__":
     refiner.load_data()
     extrinsics = refiner.extrinsics
 
-    extr_opt = "./extrinsics_opt.npz"
+    eps_euler = .1 #x degree step size in terms of rotation
+    eps_translation = .01 #this is a relative value that depends on the depth scale refiner.scale
+    extr_opt = "extrinsics_opt_{}_{}".format(eps_euler, eps_translation)
+    extr_opt = "./{}.npz".format(extr_opt)
     if use_opt:
         with np.load(extr_opt) as extr_opt:
             extrinsics_opt = extr_opt["extrinsics_opt"]
