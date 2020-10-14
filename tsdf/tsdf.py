@@ -2,15 +2,16 @@ import open3d as o3d
 import numpy as np
 import struct
 from PIL import Image
+from tqdm import tqdm
 from pose_refiner import pose_refiner
 
-peter = False
-use_opt = False
+peter = True
+use_opt = True
 img1_idx = 0
 size = (1920, 1080)
 
 if __name__ == "__main__":
-    eps_euler = .2 #x degree step size in terms of rotation
+    eps_euler = .01 #x degree step size in terms of rotation
     eps_translation = .0005 #this is a relative value that depends on the depth scale refiner.scale
     extr_opt = "extrinsics_opt_{}_{}".format(eps_euler, eps_translation)
     extr_opt = "./{}.npz".format(extr_opt)
@@ -48,7 +49,7 @@ if __name__ == "__main__":
     intr = o3d.camera.PinholeCameraIntrinsic(*refiner.size, fx, fy, cx, cy)
 
     # single image visualization:
-    print("starting on single.ply")
+    print("integrating into single.ply")
     depth = refiner.depth[img1_idx]
     color = refiner.RGB[img1_idx]
     # plt.clf()
@@ -74,12 +75,23 @@ if __name__ == "__main__":
     print("single.ply done.")
 
     # full reconstruction
-    print("starting on mesh.ply")
-    for i, ext in enumerate(extrinsics):
+    print("integrating into mesh.ply")
+    for i, ext in enumerate(tqdm(extrinsics)):
         ext = np.vstack((ext, np.array([0,0,0,1])))
         ext = np.linalg.inv(ext)
-        depth = o3d.geometry.Image(refiner.depth[i])
-        color = o3d.geometry.Image(refiner.RGB[i])
+        cur_d = refiner.depth[i]
+        cur_c = refiner.RGB[i]
+        cut = 50
+        cur_d[:cut,:] = 0
+        cur_d[:,:cut] = 0
+        cur_c[:cut,:] = 0
+        cur_c[:,:cut] = 0
+        cur_d[-cut:,:] = 0
+        cur_d[:,-cut:] = 0
+        cur_c[-cut:,:] = 0
+        cur_c[:,-cut:] = 0
+        depth = o3d.geometry.Image(cur_d)
+        color = o3d.geometry.Image(cur_c)
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
         volume.integrate(rgbd, intr, ext)
 
