@@ -3,12 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+peter = True
 img1_idx = 0
-img2_idx = 20
+img2_idx = 10
 size = (384, 224)
 
 if __name__ == "__main__":
-    peter = False
 
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
