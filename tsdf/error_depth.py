@@ -67,6 +67,6 @@ if __name__ == "__main__":
     for i in tqdm(range(refiner.N)):
         cur_scale = minimize(depth_error, 10, args=(refiner.depth[i], depth_truth[i]), method = 'Nelder-Mead', options={"disp":False}).x[0]
         scales.append(cur_scale)
-        abs_error = refiner.depth[i] - depth_truth[i]/cur_scale
-        plt.imsave(fmt.format(i), abs_error, cmap='coolwarm', vmin=-0.25, vmax=0.25)
+        error = refiner.depth[i] - depth_truth[i]/cur_scale
+        plt.imsave(fmt.format(i), error, cmap='coolwarm', vmin=-0.25, vmax=0.25)
     
