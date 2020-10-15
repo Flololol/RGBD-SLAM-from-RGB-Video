@@ -35,7 +35,7 @@ class ICP:
     def fit(self):
         unknowns = np.array([1, 0, 0, 0, 0, 0, 0])
         bnds = [(0,None),(0,360),(0,360),(0,360),(None,None),(None,None),(None,None)]
-        # res = minimize(self.alignment_error, unknowns, bounds=bnds, args=(self.source[:,:3,3], self.target[:,:3,3]), method = 'Nelder-Mead', options={"disp":True, "maxiter":50000, "xatol":1e-10, "fatol":1e-10}).x
+        # res = minimize(self.alignment_error, unknowns, args=(self.source[:,:3,3], self.target[:,:3,3]), method = 'Nelder-Mead', options={"disp":True, "maxiter":50000, "xatol":1e-10, "fatol":1e-10}).x
         res = minimize(self.alignment_error, unknowns, bounds=bnds, args=(self.source[:,:3,3], self.target[:,:3,3]), options={"disp":True, "maxiter":50000}).x
         align_scale = res[0]
         align_rot = res[1:4]
