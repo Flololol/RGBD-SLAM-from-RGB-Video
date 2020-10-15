@@ -62,7 +62,7 @@ if __name__ == "__main__":
         plt.imshow(error_img, cmap='plasma')
         plt.show()
         
-    fmt = "./depth_error/error_{:06d}.png"
+    fmt = "./error_depth/error_{:06d}.png"
     scales = []
     for i in tqdm(range(refiner.N)):
         cur_scale = minimize(depth_error, 10, args=(refiner.depth[i], depth_truth[i]), method = 'Nelder-Mead', options={"disp":False}).x[0]
