@@ -102,7 +102,7 @@ class pose_refiner:
         fmt = "frame_{:06d}.png"
         fmt_raw = "frame_{:06d}.raw"
         print("loading data..")
-        for i in range(self.N):
+        for i in tqdm(range(self.N)):
             rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i)).resize(self.size)))
             dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
             dpt = abs(np.array(Image.fromarray(dpt).resize(self.size))-1)
