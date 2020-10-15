@@ -64,6 +64,9 @@ class pose_refiner:
                 # check this pair for angle
                 Tj = np.vstack((self.extrinsics[j], np.array([0,0,0,1])))
                 Tj_inv = np.linalg.inv(Tj)
+                Tij = Tj_inv.dot(Ti)
+                Tij[:3,:4] = self.intrinsics.dot(Tij[:3,:4])
+
                 ez = np.array([0,0,1])
                 viewi = Ti[:3,:3].dot(ez)
                 viewj = Tj[:3,:3].dot(ez)
@@ -74,13 +77,11 @@ class pose_refiner:
 
                 # check this pair for overlap vectorized
                 diks = (self.diks * self.depth[i, :, :, np.newaxis]).reshape(-1,3)
-                tmp = np.ones((diks.shape[0]))
-                diks = np.concatenate((diks, tmp[:,np.newaxis]), axis=1)
+                diks = np.concatenate((diks, np.ones((diks.shape[0],1))), axis=1)
 
-                diks = np.tensordot(Ti,diks,axes=([1],[1])).T
-                diks = np.tensordot(Tj_inv, diks, axes=([1],[1])).T
-                diks = np.tensordot(self.intrinsics, diks[:,:3], axes=([1],[1])).T
-                diks = (diks / diks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3)
+                diks = np.tensordot(Tij, diks, axes=([1],[1])).T
+                diks = (diks[:,:3] / diks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3)
+
                 xLim = np.logical_and(diks[:,:,0]>0, diks[:,:,0]<self.size[0])
                 yLim = np.logical_and(diks[:,:,1]>0, diks[:,:,1]<self.size[1])
                 lim = np.logical_and(xLim, yLim)
