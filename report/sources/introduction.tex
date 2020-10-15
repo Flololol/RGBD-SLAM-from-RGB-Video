@@ -4,8 +4,8 @@
     For the estimation of the depth maps we rely on the approach of Luo et al. \cite{luo2020consistent} (Consistent Video Depth Estimation) to fine-tune the monocular depth estimation model from Google, which was initially trained on the Mannequin Challenge dataset \cite{mannequin}.
     Their method addresses the usual problems of monocular depth estimation and promises to produce plausible, geometrically and temporally consistent depth maps for any input video, which is a key element for high-quality reconstructions.
     This method provides us with our depth estimates, as well as relatively accurate camera extrinsics and intrinsics. which are obtained from bundle adjustment of sparse SIFT points using COLMAP \cite{colmap}.\\
-    These are the initial values for our reconstruction approach, which is strongly based on the Bundle Fusion paper \cite{dai2017bundlefusion}.
-    Dai et al. are proposing a two-step (sparse then dense) pose optimization with a strong focus on real-time applicability.
+    These are the initial values for our reconstruction approach, which is strongly based on the Bundle Fusion paper \cite{dai2017bundlefusion} by Dai et al..
+    They are proposing a two-step (sparse then dense) pose optimization with a strong focus on real-time applicability.
     Since the fine-tuning of the depth estimates cannot be done in real-time, we are only interested in their optimization strategies.
-    More specific, we only apply their fine-scaled dense optimization strategy for pixel-level alignment of the frames, since their hierarchical sparse optimization has the primary focus of real-time applicability, and does not yield higher accuracy than our exhaustively matched points aquired from COLMAP.
+    To be more specific, we only apply their fine-scaled dense optimization strategy for pixel-level alignment of the frames, since their hierarchical sparse optimization has the primary focus of real-time applicability, and does not yield higher accuracy than our exhaustively matched points aquired from COLMAP.
     Finally we use Open3D \cite{open3d} to integrate the RGB and depth frames into a scalable truncated signed distance function (TSDF) voxel volume with the optimized camera trajectory. Open3D gives us some handy features and allows us to easily extract textured meshes from these volumes for visualization.\\
