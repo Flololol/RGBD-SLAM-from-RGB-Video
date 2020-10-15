@@ -1,17 +1,15 @@
 \chapter{Results}
+    the order of these sections is semi important imo. with pose opt first, we can tell the story that we slowly figured out, that the depth is the bottleneck.
     \section{pose optimization}
         \begin{itemize}
             \item show initial reconstruction without optimization (kinda shitty)
-            \item explain that for optimization reasons we now have to only look at a subset of frames (kinda like they keyframes in bundlefusion)
+            \item explain that for optimization reasons we now have to only look at a subset of frames (kinda like they keyframes in bundlefusion (without combining the chunks into one keyframe..)). and to make it fair, we compare initial reconstruction with the same frames as the optimized reconstruction.
             \item show initial reconstruction without and with optimization (both strided)
-            \item compare and TRY to show, that it improved it in some way
-            \item question if there even is a better set of extrinsics to combine the frames
+            \item compare and TRY to show, that it improved it in some way. the ground truth data should help here. hopefully we get a lower absolute trajectory error after the optimiziation. also some qualitative results (3d reconstruction screencaps).
+            \item question if there even is a better set of extrinsics to combine the frames, leading to a potential other problem..
         \end{itemize}
     \section{Consistent Depth}
         \begin{itemize}
-            \item analyze quality of the depth estimation through the ground truth video
-            \item show the depth error heatmap for the ground truth data!
-            \item option1: blame everything on shitty depth (arguing, that the optimizer did the best he could)
-            \item option2: possibly present magical scale fix
-            \item option3: depth is not at fault and our optimization is just sadly not working as we want it to
+            \item maybe lead with a screenshot from the 3d reconstruction and a relevant frame from the video that shows, that corners are rounded and the depth is obviously flawed! (protein-tuete, ecken, meine wand die auch omegarund ist)
+            \item describe how we compared the "consistent depth depth" to the ground truth --> leads to error heatmap that shows how off the depth estimate is
         \end{itemize}

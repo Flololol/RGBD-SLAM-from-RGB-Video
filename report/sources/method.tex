@@ -1,10 +1,19 @@
 \chapter{Method}
     \section{Consistent Depth}
         this gives us depth and colmap extrinsics.\\
-        talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.
-    \section{Pose Optimization}
-        include vis\_reprojection here to explain formulas.
+        talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.\\
+        main point here is, that we get a depth estimate and extrinsics estimate!
     \section{3D Reconstruction}
+        my reason to skip pose estimation for now is, that it is a bit of a story.\\
+        1 get depth \& extrinsics\\
+        2 use them\\
+        3 improve on extrinsics.\\
         we tried out different approaches for the reconstruction and ended up using open3d\\
-        talk about adjusting the extrinsics\\
-        maybe talk about integration and deintegration (used by bundle fusion it is live and they update their reconstruction)
+        talk about modifying the extrinsics to make everything work\\
+        maybe talk about integration and deintegration (used by bundle fusion as it is live and they update their reconstruction)\\
+        to improve on the shitty reconstruction we wanted to optimize the extrinsics. this would nicely lead into the next section!!!\\
+        compare extrinsics to ground truth with the matlab 3d plot?
+    \section{Pose Optimization}
+        describe our method that is basically bundlefusion without a bunch of parts.. for some we can argue that we don't need it since we don't wanna run shit live.\\
+        include vis\_reprojection here to explain represent what the energies in the optimization imply/mean.\\
+        compare the bundlefusion custom cuda implementation to our scipy solver..
