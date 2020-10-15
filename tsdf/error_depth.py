@@ -61,12 +61,12 @@ if __name__ == "__main__":
         error_img = abs(refiner.depth[img_id] - depth_truth[img_id]/best_scale)
         plt.imshow(error_img, cmap='plasma')
         plt.show()
-        
-    fmt = "./error_depth/error_{:06d}.png"
-    scales = []
-    for i in tqdm(range(refiner.N)):
-        cur_scale = minimize(depth_error, 10, args=(refiner.depth[i], depth_truth[i]), method = 'Nelder-Mead', options={"disp":False}).x[0]
-        scales.append(cur_scale)
-        error = refiner.depth[i] - depth_truth[i]/cur_scale
-        plt.imsave(fmt.format(i), error, cmap='coolwarm', vmin=-0.25, vmax=0.25)
+    else:
+        fmt = "./error_depth/error_{:06d}.png"
+        scales = []
+        for i in tqdm(range(refiner.N)):
+            cur_scale = minimize(depth_error, 10, args=(refiner.depth[i], depth_truth[i]), method = 'Nelder-Mead', options={"disp":False}).x[0]
+            scales.append(cur_scale)
+            error = refiner.depth[i] - depth_truth[i]/cur_scale
+            plt.imsave(fmt.format(i), error, cmap='coolwarm', vmin=-0.25, vmax=0.25)
     
