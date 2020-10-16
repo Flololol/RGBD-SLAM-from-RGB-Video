@@ -1,8 +1,11 @@
 \chapter{Related Work}
-    \begin{itemize}
-        \item Learning the Depths of Moving People by Watching Frozen People (basis for consistent depth)
-        \item consistent depth (they produce depth from monocular vision but don't use it for reconstructions)
-        \item bundlefusion (rgb-d to 3d reconstruction (they focus on perfecting extrinsics i think))
-        \item Monocular Depth Estimation Based On Deep
-        Learning: An Overview (is this relevant to us?)
-    \end{itemize}
+    With the abundance of mobile recording devices and therefore monocular videos, the estimation of accurate depth maps that can lead to 3D reconstructions is a popular challenge.
+    There are many suggested approaches for the estimation of depth maps.
+    While \citetitle{roussos2012dense}~\cite{roussos2012dense} and \citetitle{russell2014video}~\cite{russell2014video} focus on the challenge of dynamic objects in a scene, accurate dense 3D reconstructions of stationary scenes is also a difficult challenge.
+    This is especially the case for large frame sequences with a lot of camera movement.\\
+    In \citetitle{luo2020consistent}~\cite{luo2020consistent} \citeauthor{luo2020consistent} propose a method of estimating depth for monocular videos by adjusting depth estimates of single frames such that temporal and geometric consistency is achieved.
+    The initial single frame depth estimations are retrieved through the convolutional network from \citetitle{mannequin}~\cite{mannequin}.
+    This network is then fine-tuned on a specific video to satisfy the geometric and temporal constraints.\\
+    A method for a live 3D reconstruction with RGB-D input stream is suggested in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
+    In this case, the pose estimation is the main challenge because when the problem is scaled up, there is an increasing drift in the pose estimation.
+    While other approaches require long offline processing to achieve a globally correct model, their online approach tries to solve this through a hierarchical pose estimation that does not rely on temporal consistency of the frame sequence and contains implicit loop closures.
