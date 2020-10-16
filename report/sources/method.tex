@@ -5,6 +5,50 @@
         this gives us depth and colmap extrinsics.\\
         talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.\\
         main point here is, that we get a depth estimate and extrinsics estimate!
+    \section{Pose Optimization}
+        Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
+        Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
+        The hierarchical structure they propose is required for their online reconstruction as it drastically reduces the computational requirements.
+        As we aimed for an offline reconstruction, we were able to cut a few of the optimization steps they employed.\\
+        Their method for the pose optimization contains a sparse part and a dense part.
+        As the reconstruction progresses they reduce the weight of the sparse term and increase the weight of the dense term.
+        Since we start with the sparse pose estimation from COLMAP and want to simply refine our poses, we ignore their sparse term and focus on the dense term.\\
+        The optimization we implemented is formulated as an error minimization problem where the total dense error is the sum of the photometric and geometric error:
+        \begin{equation}
+            E_{\text{dense}}(X) = E_{\text{photo}}(X) + E_{\text{geo}}(X)
+        \end{equation}
+        Where $X$ contains the global pose $T$ of every image.
+        Both Terms are evaluated onover all valid image pairs.
+        Two images are considered a valid image pair, two conditions are met.
+        The camera angle difference between two frames has to be below a threshold that we ended up setting to 50\textdegree.
+        The second requirement for an image pair is a minimum overlap of 20\%.
+        A pixel is overlapping if it's 3D position lies within the view frustum of the other image.
+        We precompute the image pairs and store them in a matrix $M$ of size $N \times N$ with $M(i,j) = 1$ if $i$ and $j$ form a valid image pair.\\
+        The photometric term is based on the luminance gradient $I$, as it is more robust against lighting changes.
+        \begin{equation}
+            E_{\text{photo}}(X) =
+            \frac{1}{v} \sum_{(i,j) | M(i,j)=1}\sum_{k=0}^{\left\lvert I_i \right\rvert}
+            \left\lvert\left\lvert
+            I_i(K^{-1}(d_{i,k})) - I_j(K^{-1}(T_j^{-1}T_id_{i,k}))
+            \right\rvert\right\rvert_2^2
+        \end{equation}
+        Where $K$ is the 
+        $v$ is the number of valid pixels that contributed to the error.
+        For an image pair, pixels are valid if their 3D position lies within the view frustum of the other frame.
+        \begin{equation}
+            E_{\text{geo}}(X) =
+            \frac{1}{v} \sum_{(i,j) | M(i,j)=1}\sum_{k=0}^{\left\lvert D_i \right\rvert}
+            \left[
+            n_{i,k}^T \left(d_{i,k} - T_i^{-1}T_jK \left( D_j \left( K^{-1}\left( T_j^{-1}T_id_{i,k} \right) \right) \right)\right)
+            \right]^2
+        \end{equation}
+        
+        
+
+        asd\\
+        describe our method that is basically bundlefusion without a bunch of parts.. for some we can argue that we don't need it since we don't wanna run shit live.\\
+        include vis\_reprojection here to explain represent what the energies in the optimization imply/mean.\\
+        compare the bundlefusion custom cuda implementation to our scipy solver..
     \section{3D Reconstruction}
         my reason to skip pose estimation for now is, that it is a bit of a story.\\
         1 get depth \& extrinsics\\
@@ -15,7 +59,3 @@
         maybe talk about integration and deintegration (used by bundle fusion as it is live and they update their reconstruction)\\
         to improve on the shitty reconstruction we wanted to optimize the extrinsics. this would nicely lead into the next section!!!\\
         compare extrinsics to ground truth with the matlab 3d plot?
-    \section{Pose Optimization}
-        describe our method that is basically bundlefusion without a bunch of parts.. for some we can argue that we don't need it since we don't wanna run shit live.\\
-        include vis\_reprojection here to explain represent what the energies in the optimization imply/mean.\\
-        compare the bundlefusion custom cuda implementation to our scipy solver..
