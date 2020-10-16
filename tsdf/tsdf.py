@@ -7,12 +7,12 @@ from pose_refiner import pose_refiner
 from error_extrinsics import ICP
 from error_depth import DepthScale
 
-peter = True
-# use_extr = 'our'
+peter = False
+use_extr = 'our'
 # use_extr = 'opt'
-use_extr = 'tru'
-use_depth = 'our'
-# use_depth = 'tru'
+# use_extr = 'tru'
+# use_depth = 'our'
+use_depth = 'tru'
 img1_idx = 0
 size = (640, 480)
 CUT = False
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     color_dir = base_dir+"color_full/"
     metadata = base_dir+"R_hierarchical2_mc/"
 
-    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=(use_extr=='tru' or use_depth=='tru'))
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=True)
     refiner.load_data()
 
     if use_extr == 'opt':
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         extrinsics = refiner.extrinsics
     
     if use_depth == 'tru':
-        refiner.depth_truth = refiner.depth_truth.astype(np.float32)
+        refiner.depth_truth = refiner.depth_truth.astype(np.float32) #o3d doesnt like doubles
         depth = refiner.depth_truth
     elif use_depth == 'our':
         depthscale = DepthScale(refiner)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         depth = refiner.depth * scale
 
     volume = o3d.integration.ScalableTSDFVolume(
-        voxel_length = 1.0 / 128,
+        voxel_length = 1.0 / 200,
         sdf_trunc = 0.1,
         color_type=o3d.integration.TSDFVolumeColorType.RGB8
     )
