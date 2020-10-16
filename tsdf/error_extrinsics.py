@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 
-peter = False
+peter = True
 size = (640, 480)
 use_opt = False
 global_align = True
@@ -70,16 +70,22 @@ if __name__ == "__main__":
     if use_opt:
         with np.load(extr_opt) as extr_opt:
             extr_ours = extr_opt["extrinsics_opt"]
-        refiner.fresh = False
-        refiner.preprocess_data()
-        refiner.resize_stride(int(refiner.extrinsics.shape[0]/extr_ours.shape[0]+1))
+        stride = int((refiner.extrinsics.shape[0])/extr_ours.shape[0]+1)
+        print('calculated stride {}'.format(stride))
+        refiner.resize_stride(stride)
         extr_truth = refiner.extrinsics_truth
     else:
-        refiner.fresh = False
-        refiner.preprocess_data()
         refiner.resize_stride(stride)
         extr_ours = refiner.extrinsics
         extr_truth = refiner.extrinsics_truth
+
+    print('extr_ours.shape: {}'.format(extr_ours.shape))
+    print('extr_truth.shape: {}'.format(extr_truth.shape))
+
+    if extr_ours.shape[0] != extr_truth.shape[0]:
+        min_n = np.min([extr_ours.shape[0], extr_truth.shape[0]])
+        extr_ours = extr_ours[:min_n]
+        extr_truth = extr_truth[:min_n]
 
     if global_align:
         icp = ICP(extr_ours, extr_truth)
@@ -128,11 +134,11 @@ if __name__ == "__main__":
     ax = fig.add_subplot(111, projection='3d')
     #camera locations for true extrinsics
     ax.plot(cam_t[0,0], cam_t[0,1], cam_t[0,2], 'ro', markersize=6)
-    ax.plot(cam_t[1:,0], cam_t[1:,1], cam_t[1:,2], 'go', markersize=5)
+    ax.plot(cam_t[1:,0], cam_t[1:,1], cam_t[1:,2], 'go', markersize=4)
 
     #camera locations for our extrinsics
     ax.plot(cam_o[0,0], cam_o[0,1], cam_o[0,2], 'ro', markersize=6)
-    ax.plot(cam_o[1:,0], cam_o[1:,1], cam_o[1:,2], 'bo', markersize=5)
+    ax.plot(cam_o[1:,0], cam_o[1:,1], cam_o[1:,2], 'bo', markersize=4)
 
     # #point 1 & 2 for true extrinsics
     ax.plot(points_t[0,0,0], points_t[0,0,1], points_t[0,0,2], 'rx', markersize=6)
