@@ -3,21 +3,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-peter = False
-img1_idx = 0
-img2_idx = 20
-size = (384, 224)
+peter = True
+img1_idx = 291
+img2_idx = 416
+size = (640, 480)
 
 if __name__ == "__main__":
 
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/"
     if peter:
-        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/"
+        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/lr_kt2_flo/"
         depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
-    color_dir = base_dir+"color_down_png/"
-    # color_dir = base_dir+"color_full/"
+    # color_dir = base_dir+"color_down_png/"
+    color_dir = base_dir+"color_full/"
     metadata = base_dir+"R_hierarchical2_mc/"
 
     refiner = pose_refiner(color_dir, depth_dir, metadata, size=size)
@@ -60,10 +60,13 @@ if __name__ == "__main__":
                 imgX = int(pos[0])
                 imgY = int(pos[1])
                 transformed[imgY, imgX] = img1[y, x]
-                img2[imgY, imgX] = img1[y, x]
-    plt.imshow(img1)
+                # img2[imgY, imgX] = img1[y, x]
+    # plt.imshow(img1)
+    plt.imsave("1.png", img1)
     plt.show()
-    plt.imshow(transformed)
+    # plt.imshow(transformed)
+    plt.imsave("2.png", transformed)
     plt.show()
-    plt.imshow(img2)
+    # plt.imshow(img2)
+    plt.imsave("3.png", img2)
     plt.show()
