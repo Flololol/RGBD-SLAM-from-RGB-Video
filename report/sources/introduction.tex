@@ -1,7 +1,7 @@
 \chapter{Introduction}
     Our idea for the 3D Computer Vision mini project was to create high quality 3D reconstructions from regular smartphone videos, without the need for an expensive RGB-D camera like the Microsoft Kinect.
     To make this feasible, we try to combine fine-tuned depth map estimates from Convolutional Neural Networks (CNNs) with state of the art RGBD-SLAM methods.\\
-    For the estimation of the depth maps we rely on the approach of Luo et al. \cite{luo2020consistent} (Consistent Video Depth Estimation) to fine-tune the monocular depth estimation model from Google, which was initially trained on the Mannequin Challenge dataset \cite{mannequin}.
+    For the estimation of the depth maps we rely on the approach of Luo et al. \cite{luo2020consistent} (\citetitle{luo2020consistent}) to fine-tune the monocular depth estimation model from Google, which was initially trained on the Mannequin Challenge dataset \cite{mannequin}.
     Their method addresses the usual problems of monocular depth estimation and promises to produce plausible, geometrically and temporally consistent depth maps for any input video, which is a key element for high-quality reconstructions.
     This method provides us with our depth estimates, as well as relatively accurate camera extrinsics and intrinsics. The latter are obtained from bundle adjustment of sparse SIFT points using COLMAP \cite{colmap}.\\
     These are the initial values for our reconstruction approach that is strongly based on the Bundle Fusion paper \cite{dai2017bundlefusion} by Dai et al..
