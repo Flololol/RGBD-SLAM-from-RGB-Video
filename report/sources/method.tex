@@ -2,9 +2,9 @@
     Our idea was to use \citetitle{luo2020consistent}~\cite{luo2020consistent} to obtain depth estimates that we can use for 3D reconstructions.
     Before the 3D reconstruction we wanted to improve the pose estimates from COLMAP, that are obtain during the depth estimation, by employing methods from \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
     \section{Depth Estimation}
-        this gives us depth and colmap extrinsics.\\
+        \todo{this gives us depth and colmap extrinsics.\\
         talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.\\
-        main point here is, that we get a depth estimate and extrinsics estimate!
+        main point here is, that we get a depth estimate and extrinsics estimate!}
     \section{Pose Optimization}
         Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
         Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
@@ -31,26 +31,71 @@
             \left\lvert\left\lvert
             I_i(K^{-1}(d_{i,k})) - I_j(K^{-1}(T_j^{-1}T_id_{i,k}))
             \right\rvert\right\rvert_2^2
+            \label{eq:ephoto}
         \end{equation}
-        Where $K$ is the 
-        $v$ is the number of valid pixels that contributed to the error.
-        For an image pair, pixels are valid if their 3D position lies within the view frustum of the other frame.
+        Where $K$ are the camera intrinsics, $d_{i,k}$ is the 3D position of the pixel $k$ in image $i$, and $v$ is the number of valid pixels that contributed to the error.
+        For an image pair, pixels are valid if their 3D position lies within the view frustum of the other camera position.
         \begin{equation}
             E_{\text{geo}}(X) =
             \frac{1}{v} \sum_{(i,j) | M(i,j)=1}\sum_{k=0}^{\left\lvert D_i \right\rvert}
             \left[
             n_{i,k}^T \left(d_{i,k} - T_i^{-1}T_jK \left( D_j \left( K^{-1}\left( T_j^{-1}T_id_{i,k} \right) \right) \right)\right)
             \right]^2
+            \label{eq:egeo}
         \end{equation}
-        
-        
-
-        asd\\
-        describe our method that is basically bundlefusion without a bunch of parts.. for some we can argue that we don't need it since we don't wanna run shit live.\\
-        include vis\_reprojection here to explain represent what the energies in the optimization imply/mean.\\
-        compare the bundlefusion custom cuda implementation to our scipy solver..
+        While $I_i(x,y)$ gives us the luminance gradient at an image coordinate $(x,y)$ within image $i$, $D_i(x,y)$ provides us with the depth at the specified pixel in image $i$.
+        $n_{i,k}$ is the normal vector at pixel $k$ in image $i$, we compute the normals with open3d.\\
+        We believe some further elaboration regarding equations~\ref{eq:ephoto} and \ref{eq:egeo} may be useful.
+        For one, the left part of equation~\ref{eq:ephoto},
+        \begin{equation*}
+            I_i(K^{-1}(d_{i,k})),
+        \end{equation*}
+        is simply the luminance at pixel $k$ in image $i$.
+        While $K^{-1}(d_{i,k})$ results in a 3d vector, the last dimension can be removed in order to obtain the pixel coordinates $x$ and $y$.
+        Then $I_i(x,y)$ is essentially a function that maps the pixel coordinates to the 2d luminance gradient vector.
+        For the right side of equation~\ref{eq:ephoto},
+        \begin{equation*}
+            I_j(K^{-1}(T_j^{-1}T_id_{i,k})),
+        \end{equation*}
+        we have to consider that $d_{i,k}$ is a 3d vector and the transforms $T_i$ and $T_j^{-1}$ are both $4 \times 4$ matrices.
+        Therefore $d_{i,k}$ has to be expanded by one dimension by appending $1$ to it.
+        It can then be transformed by $T_i$ and $T_j^{-1}$.
+        Th resulting 4d vector has to be reduced to a 3d vector before the inverse intrinsics can be applied to it in order to obtain the pixel coordinate.\\
+        For the purpose of understanding these terms we have visualized the following equation for an image pair $(i, j)$:
+        \begin{equation}
+            C_j(K^{-1}(T_j^{-1}T_id_{i,k})) \coloneqq C_i(K^{-1}d_{i,k})
+            \label{eq:vis_perspective}
+        \end{equation}
+        The visualization of equation~\ref{eq:vis_perspective} can be seen in figure~\ref{fig:vis_perspective}.
+        The combination of $T_j^{-1}T_i$ transforms the 3d point $d_{i,k}$ of image $i$ into the global pose of image $i$ and then out of the pose of image $j$.
+        The combination is then simply the transform from image $i$ to image $j$.
+        In other words, we look at the 3d point $d_{i,k}$ from the camera position of image $j$.
+        With the inverse of the intrinsics matrix we retrieve the pixel coordinates that this point would fall into if viewed from the new position.
+        For the visualization we write the color information of every pixel from image $i$ into the new pixel position in image $j$.
+        All pixels in image $j$ that haven't been hit are set to zero.
+        \begin{figure}[h]
+            \centering
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_01}
+                \caption{original image $i$}
+                \label{sfig:i_original}
+            \end{subfigure}
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_03}
+                \caption{original image $j$}
+                \label{sfig:j_original}
+            \end{subfigure}
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_02}
+                \caption{information from image $i$ viewed from the camera position of image $j$}
+                \label{sfig:i_from_j}
+            \end{subfigure}
+            \caption[]{Visual interpretation of what happens in the error terms $E_{\text{geo}}$ and $E_{\text{phoyo}}$, described through equation~\ref{eq:vis_perspective}}
+            \label{fig:vis_perspective}
+        \end{figure}
+        \todo{hier noch ueber unsere $d_{i,k}$ solution/precomputation reden! fand ich ziemlich comfy, dass das precomputable ist (bis auf den depth teil)}
     \section{3D Reconstruction}
-        my reason to skip pose estimation for now is, that it is a bit of a story.\\
+        \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\
         1 get depth \& extrinsics\\
         2 use them\\
         3 improve on extrinsics.\\
@@ -58,4 +103,4 @@
         talk about modifying the extrinsics to make everything work\\
         maybe talk about integration and deintegration (used by bundle fusion as it is live and they update their reconstruction)\\
         to improve on the shitty reconstruction we wanted to optimize the extrinsics. this would nicely lead into the next section!!!\\
-        compare extrinsics to ground truth with the matlab 3d plot?
+        compare extrinsics to ground truth with the matlab 3d plot?}
