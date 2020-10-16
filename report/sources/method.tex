@@ -1,5 +1,5 @@
 \chapter{Method}
-    Our idea was to apply the method from \citetitle{luo2020consistent}~\cite{luo2020consistent} to fine-tune a CNN and use the refined depth estimates as well as the inherently produced COLMAP camera in- and extrinsics for 3D reconstructions.
+    Our idea was to apply the method from \citetitle{luo2020consistent}~\cite{luo2020consistent} to fine-tune a CNN and use the refined depth estimates, as well as the inherently produced COLMAP camera in- and extrinsics for 3D reconstructions.
     Before reconstructing, we wanted to improve the initial pose estimates from COLMAP with an energy minimization approach in the fashion of \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
 
     \section{Depth Estimation}
@@ -22,7 +22,7 @@
         During execution, this lead to cases where we encountered division by zero in the scale calibration.
         We believe that this made the training unstable, since we had the issue that the loss of the network sometimes became NaN during an epoch.
         We tried to fix this by adding a small $eps$ to the COLMAP depth maps and afterwards we did not encounter NaNs or division by zero anymore.\\
-        We don't want to blame the issues entirely on this, since we did not do enough testing to rule out other possibilities, and since this did not fix our second issue with the consistent depth maps, namely holes in the predicted depth map at random locations (but consistent for the sequence).
+        We don't want to blame the issues entirely on this, since we did not do enough testing to rule out other possibilities, especially since this did not fix our second issue with the consistent depth maps, namely holes in the predicted depth map at random locations (but consistent for the sequence).
         \begin{figure}
             \centering
             \includegraphics[width=0.33\textwidth]{images/hole.png}
