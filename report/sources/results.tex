@@ -52,7 +52,7 @@
                 \label{sfig:align_global_opt}
             \end{subfigure}
             \caption[]{\ref{sfig:align_first_pair} aligning both initial poses perfectly. \ref{sfig:align_global} ICP-like global alignment of unoptimized extrinsics. \ref{sfig:align_global_opt} ICP-like global alignment of optimized extrinsics. For both trajectories the orientation of the first pose is indicated by two crosses into the direction the camera is facing, red for ground truth and yellow for the other trajectory. \ref{sfig:align_global}~\&~\ref{sfig:align_global_opt} were reduced with a stride of 20.}
-            \label{fig:vis_perspective}
+            \label{fig:traj_alignment}
         \end{figure}\\
         While the cost function described in equation~\ref{eq:edense} provides a lower cost for the optimized extrinsics, the alignment error from equation~\ref{eq:ealign} was actually higher than the unoptimized extrinsics.
         So the optimized poses actually fir worse to the ground truth than the initial estimates:
