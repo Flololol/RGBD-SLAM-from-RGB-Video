@@ -1,5 +1,13 @@
 \chapter{Conclusion}
-    \todo{our pose optimization can't improve the extrinsics when it is so heavily based on the depth that is so shit..}
+    Summing up our insight we accumulated over the past weeks, we identified two main possibilities for the error in our pipeline, leading to the worse results after optimization. %den muss man vllt nochmal ändern :D
+    First, we might have done an amazing job with the minimization of the energy, but the faulty refined depth maps are so far off from the truth, that no optimizer in the world could fit that.
+    We would have to investigate more into why these holes occur and how we can make the depth maps even more consistent.
+    The second and maybe more likely possiblity is that we did not employ pixel consistency checks like reprojection error and normal deviation to account for occlusion and other sources of error.
+    We simply checked if the transformed pixel lands in the target image and realized too late that the optical flow masks computed during the \citetitle{luo2020consistent} step could yield better results for this problem.
+    Also our minimization approach is probably too unconstrained and has no real gradient for the optimizer, which makes it a difficult challenge.
+    A major part of the bundle fusion paper is their online nonlinear GPU solver for this problem with an intelligent gradient estimation that we simply cannot compete with.
+
+    \todo{\\our pose optimization can't improve the extrinsics when it is so heavily based on the depth that is so shit..}
     conclusion may be, that the optimization just requires all the things we skipped.. better solver, better jacobian, better outlier filtering, ..\\
     or that the depth is just a bit fucked and the optimization approach actually works with the ground truth depth
     \begin{itemize}
@@ -11,3 +19,6 @@
     maybe we should point out, that we may have underestimated the effort required for this project? (or not.. idk)\\
     what we sadly did not have enough time for, was to attempt the extrinsics refinement with the true depth and normals that are based on the true depth. this would show us if the optimization in itself works or not. the current results point to the refinement making the extrinsics worse. but that could very well be because of the broken depth that is used in the refinement process!\\
     optimization could have been improved with masks from FlowNet\\
+    learned a lot\\
+    was kinda fun\\
+    
