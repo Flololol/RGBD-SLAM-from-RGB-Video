@@ -1,11 +1,35 @@
 \chapter{Related Work}
-    With the abundance of mobile recording devices and therefore monocular videos, the estimation of accurate depth maps that can lead to 3D reconstructions is a popular challenge.
-    There are many suggested approaches for the estimation of depth maps.
-    While \citetitle{roussos2012dense}~\cite{roussos2012dense} and \citetitle{russell2014video}~\cite{russell2014video} focus on the challenge of dynamic objects in a scene, accurate dense 3D reconstructions of stationary scenes is also a difficult challenge.
-    This is especially the case for large frame sequences with a lot of camera movement.\\
-    In \citetitle{luo2020consistent}~\cite{luo2020consistent} \citeauthor{luo2020consistent} propose a method of estimating depth for monocular videos by adjusting depth estimates of single frames such that temporal and geometric consistency is achieved.
-    The initial single frame depth estimations are retrieved through the convolutional network from Google that was trained on the dataset from \citetitle{mannequin}~\cite{mannequin}.
-    This network is then fine-tuned on a specific video to satisfy the geometric and temporal constraints.\\
-    A method for a live 3D reconstruction with RGB-D input stream is suggested in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
-    In this case, the pose estimation is the main challenge because when the problem is scaled up, there is an increasing drift in the pose estimation.
-    While other approaches require long offline processing to achieve a globally correct model, their online approach tries to solve this through a hierarchical pose estimation that does not rely on temporal consistency of the frame sequence and contains implicit loop closures.
+    Depth estimation from monocular video inputs is a challenging problem.
+    It is ill-posed, since the results are ambiguous in terms of scale, and thus not unique, and the solutions usually do not change continuously, since depending on the projection of an object on the RGB frame, its depth interpretation can vary significantly.
+    With the abundance of mobile recording devices and therefore monocular videos, the single-shot estimation of accurate depth maps has become more and more attention in recent years.\\
+    There is a variety of CNN models for depth estimation, which are trained with different methods and datasets.
+    Ranftl et al. in \citetitle{ranftl2020robust}~\cite{ranftl2020robust} propose their Midas v2 model, which was trained with a robust training objective, that is invariant to changes of range and scale of the target depth.
+    This allowed them to combine their training data from multiple sources which resulted in great generalization.
+    They showed the powerfulness of their approach by doing zero-shot cross-dataset evalutation, meaning they did evalutation on datasets that have not been seen during training.\\
+    Monodepth v2 tries to further close the gap of quality between fully-supervised and self-supervised models.
+    Godard et al. propose in \citetitle{godard2019digging}~\cite{godard2019digging} a minimum reprojection loss, that is designed to robustly handle inputs for self-supervised learning.
+    They handle occlusion, automatically mask pixels which violate the assumptions of camera motion and employ a multi-scale sampling method to reduce visual artifacts.\\
+    Li et al. created the famous Mannequin Challenge dataset, for which they used videos from a YouTube challenge showing scenes with people standing in a static position.
+    They infered ground truth depth maps with stereo reconstruction and trained models on them, showing their results in \citetitle{mannequin}~\cite{mannequin}.
+    This allowed them to predict plausible depth maps for people, which was difficult before since a lot of reconstruction algorithms rely on geometric consistency of objects in the scene.\\
+    \citetitle{luo2020consistent}~\cite{luo2020consistent} builds upon these monodepth estimation networks.
+    They reconstruct the camera trajectory of a single input video with bundle adjustment of extracted SIFT points.
+    They then use these trajectories to calculate a geometric loss for fine-tuning a network to produce consistent depth maps for this video.
+    This geometric loss consists of two parts, disparity and spatial loss.
+    For the disparity loss they calculate the optical flow of image pairs with forward-backward consistency check using FlowNet \cite{DFIB15}.
+    They then project the initial depth guess from one frame to another with the bundle adjusted camera parameters and compare the final pixel position with the guess from FlowNet.
+    The disparity loss similarly penalizes the projected distance in camera coordinate system.
+    With the combination of these two losses they are able to eliminate temporal flickering and geometric inconsistencies for the input sequence, while still being able to generalize relatively well.\\
+    \newpage
+    For the RGBD-SLAM part of the project we mainly focused on the paper \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion} by Dai et al., a method for live 3D reconstruction from an RGB-D input stream, because it was introduced in the lecture and promised high quality reconstructions with online loop-closure and good scalability.
+    In this case, the real-time pose estimation is the main challenge.
+    With increasing size of the scene, bundle adjustment is prone to error in the pose estimation if outliers are not filtered correctly, and the number of parameters require a lot more computational power.
+    While other approaches require long offline processing to achieve a globally correct model, their online approach tries to solve this through a hierarchical pose estimation.
+    For this they divide the input stream into chunks of 11 frames.
+    When a new chunk arrives, they do sparse intra-chunk pose optimization and apply consistency checks.
+    If a chunk is valid, they infer points and positions for the keyframe (the first frame in the chunk) which represents the entire chunk.
+    This keyframe is then added to the set of global keyframes, on which they apply inter-chunk sparse pose optimization.
+    If a keyframe does not find valid matches to other keyframes, it is stored until it eventually does.
+    Therefore they do not have to rely on temporal consistency of the frame sequence and this employs implicit loop closures.
+    After the end of recording is indicated, they apply computationally more expensive dense geometric and photometric energy minimization to achieve fine-scale aligntment of the input frames.
+    To be able to update the positions of the frames in the live volume with the refined results, they extended their TSDF volume with a deintegrate function, which consistently inverts the integration.
