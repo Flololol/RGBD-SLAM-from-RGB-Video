@@ -66,7 +66,7 @@ class pose_refiner:
             extr_truth = np.array(extr_truth)
             extr_truth = extr_truth.reshape((int(extr_truth.shape[0]/12), 3, 4))
 
-            self.N = np.min([extr_truth.shape[0], self.extrinsics.shape[0]]) #somehow we're missing 1 extrinsics.. we'll just assume it is the last one that is missing
+            self.N = np.min([extr_truth.shape[0], self.N]) #somehow we're missing 1 extrinsics.. we'll just assume it is the last one that is missing
 
             ROT = np.diag([1, -1, 1])
             for i in range(self.N):
