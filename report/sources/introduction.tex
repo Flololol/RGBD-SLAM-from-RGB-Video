@@ -10,3 +10,8 @@
     To be more specific, we only apply their fine-scaled dense optimization strategy for pixel-level alignment of the frames. Their hierarchical sparse optimization has the primary focus of real-time applicability, and does not yield higher accuracy than our exhaustively matched points acquired from COLMAP.
     This dense optimization is based on an energy minimization approach that tries to minimize the average photo- and geometric pixel error. Assuming decent depth estimates, the error should come from the slightly incorrect camera rotations and translations.
     Finally we use Open3D \cite{open3d} to integrate the RGB and depth frames into a scalable truncated signed distance function (TSDF) voxel volume with the optimized camera trajectory. Open3D gives us some handy features and allows us to easily extract textured meshes from these volumes for visualization.
+
+    \begin{figure}[!hb]
+        \centering
+        \includegraphics[width=0.6\textwidth]{images/gt_reconstruction.png}
+    \end{figure}

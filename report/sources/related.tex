@@ -21,7 +21,7 @@
     The disparity loss similarly penalizes the projected distance in camera coordinate system.
     With the combination of these two losses they are able to eliminate temporal flickering and geometric inconsistencies for the input sequence, while still being able to generalize relatively well.\\
     \newpage
-    For the RGBD-SLAM part of the project we mainly focused on the paper \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion} by Dai et al., a method for live 3D reconstruction from an RGB-D input stream, because it was introduced in the lecture and promised high quality reconstructions with online loop-closure and good scalability.
+    \noindent For the RGBD-SLAM part of the project we mainly focused on the paper \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion} by Dai et al., a method for live 3D reconstruction from an RGB-D input stream, because it was introduced in the lecture and promised high quality reconstructions with online loop-closure and good scalability.
     In this case, the real-time pose estimation is the main challenge.
     With increasing size of the scene, bundle adjustment is prone to error in the pose estimation if outliers are not filtered correctly, and the number of parameters require a lot more computational power.
     While other approaches require long offline processing to achieve a globally correct model, their online approach tries to solve this through a hierarchical pose estimation.
