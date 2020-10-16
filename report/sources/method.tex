@@ -37,7 +37,7 @@
         We still use these results as well as the sparsely optimized COLMAP parameters for further optimization.
     
     \section{Pose Optimization}\label{sec:method_pose_optimization}
-        Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
+        Using the estimates for the depth and global pose from the previous step, we technically have everything we need for a 3D reconstruction.
         Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
         The hierarchical structure they propose is required for their online reconstruction as it drastically reduces the computational requirements.
         As we aimed for an offline reconstruction, we were able to cut a few of the optimization steps they employed.\\
@@ -50,28 +50,27 @@
             \label{eq:edense}
         \end{equation}
         Where $X$ contains the global pose $T$ of every image.
-        Both Terms are evaluated onover all valid image pairs.
-        Two images are considered a valid image pair, two conditions are met.
+        Both Terms are evaluated over all valid image pairs.
+        Two images are considered a valid image pair, if two conditions are met.
         The camera angle difference between two frames has to be below a threshold that we ended up setting to 50\textdegree.
         The second requirement for an image pair is a minimum overlap of 20\%.
-        A pixel is overlapping if it's 3D position lies within the view frustum of the other image.
         We precompute the image pairs and store them in a matrix $M$ of size $N \times N$ with $M(i,j) = 1$ if $i$ and $j$ form a valid image pair.\\
         The photometric term is based on the luminance gradient $I$, as it is more robust against lighting changes.
         \begin{equation}
             E_{\text{photo}}(X) =
             \frac{1}{v} \sum_{(i,j) | M(i,j)=1}\sum_{k=0}^{\left\lvert I_i \right\rvert}
             \left\lvert\left\lvert
-            I_i(K^{-1}(d_{i,k})) - I_j(K^{-1}(T_j^{-1}T_id_{i,k}))
+            I_i(K(d_{i,k})) - I_j(K(T_j^{-1}T_id_{i,k}))
             \right\rvert\right\rvert_2^2
             \label{eq:ephoto}
         \end{equation}
         Where $K$ are the camera intrinsics, $d_{i,k}$ is the 3D position of the pixel $k$ in image $i$, and $v$ is the number of valid pixels that contributed to the error.
-        For an image pair, pixels are valid if their 3D position lies within the view frustum of the other camera position.
+        A pixel is considered valid if it's 3D position lies within the view frustum of the other camera position.
         \begin{equation}
             E_{\text{geo}}(X) =
             \frac{1}{v} \sum_{(i,j) | M(i,j)=1}\sum_{k=0}^{\left\lvert D_i \right\rvert}
             \left[
-            n_{i,k}^T \left(d_{i,k} - T_i^{-1}T_jK \left( D_j \left( K^{-1}\left( T_j^{-1}T_id_{i,k} \right) \right) \right)\right)
+            n_{i,k}^T \left(d_{i,k} - T_i^{-1}T_jK^{-1} \left( D_j \left( K\left( T_j^{-1}T_id_{i,k} \right) \right) \right)\right)
             \right]^2
             \label{eq:egeo}
         \end{equation}
@@ -80,28 +79,28 @@
         We believe some further elaboration regarding equations~\ref{eq:ephoto} and \ref{eq:egeo} may be useful.
         For one, the left part of equation~\ref{eq:ephoto},
         \begin{equation*}
-            I_i(K^{-1}(d_{i,k})),
+            I_i(K(d_{i,k})),
         \end{equation*}
         is simply the luminance at pixel $k$ in image $i$.
-        While $K^{-1}(d_{i,k})$ results in a 3d vector, the last dimension can be removed in order to obtain the pixel coordinates $x$ and $y$.
+        While $K^{-1}(d_{i,k})$ results in a 3D vector, the last dimension can be removed in order to obtain the pixel coordinates $x$ and $y$.
         Then $I_i(x,y)$ is essentially a function that maps the pixel coordinates to the 2d luminance gradient vector.
         For the right side of equation~\ref{eq:ephoto},
         \begin{equation*}
-            I_j(K^{-1}(T_j^{-1}T_id_{i,k})),
+            I_j(K(T_j^{-1}T_id_{i,k})),
         \end{equation*}
-        we have to consider that $d_{i,k}$ is a 3d vector and the transforms $T_i$ and $T_j^{-1}$ are both $4 \times 4$ matrices.
+        we have to consider that $d_{i,k}$ is a 3D vector and the transforms $T_i$ and $T_j^{-1}$ are both $4 \times 4$ matrices.
         Therefore $d_{i,k}$ has to be expanded by one dimension by appending $1$ to it.
         It can then be transformed by $T_i$ and $T_j^{-1}$.
-        Th resulting 4d vector has to be reduced to a 3d vector before the inverse intrinsics can be applied to it in order to obtain the pixel coordinate.\\
+        The resulting 4D vector has to be reduced to a 3D vector before the inverse intrinsics can be applied to it in order to obtain the pixel coordinate.\\
         For the purpose of understanding these terms we have visualized the following equation for an image pair $(i, j)$:
         \begin{equation}
             C_j(K^{-1}(T_j^{-1}T_id_{i,k})) \coloneqq C_i(K^{-1}d_{i,k})
             \label{eq:vis_perspective}
         \end{equation}
         The visualization of equation~\ref{eq:vis_perspective} can be seen in figure~\ref{fig:vis_perspective}.
-        The combination of $T_j^{-1}T_i$ transforms the 3d point $d_{i,k}$ of image $i$ into the global pose of image $i$ and then out of the pose of image $j$.
+        The combination of $T_j^{-1}T_i$ transforms the 3D point $d_{i,k}$ of image $i$ into the global pose of image $i$ and then out of the pose of image $j$.
         The combination is then simply the transform from image $i$ to image $j$.
-        In other words, we look at the 3d point $d_{i,k}$ from the camera position of image $j$.
+        In other words, we look at the 3D point $d_{i,k}$ from the camera position of image $j$.
         With the inverse of the intrinsics matrix we retrieve the pixel coordinates that this point would fall into if viewed from the new position.
         For the visualization we write the color information of every pixel from image $i$ into the new pixel position in image $j$.
         All pixels in image $j$ that haven't been hit are set to zero.
@@ -127,14 +126,24 @@
         \end{figure}
         In order to solve the minimization problem from equation~\ref{eq:edense} we use the function scipy.optimize.minimize.
         While this is a very inefficient and slow process, it manages to obtain a more fitting set of extrinsics according to our cost function.
-        \todo{hier noch ueber unsere $d_{i,k}$ solution/precomputation reden! fand ich ziemlich comfy, dass das precomputable ist (bis auf den depth teil)}
+        We still took several measures to reduce the computational complexity as much as possible.
+        We precompute the initial positions $d_{i,k}$ of each pixel in camera space, since they are identical for each image, before being scaled with the individual depth.
+        For each image pair we then just multiply the depth map with each $d_{i,k}$, compute the entire transformation
+        \begin{equation}
+            T_{ijK} = K(Tj^{-1}Ti),
+        \end{equation}
+        and finally perform a single vectorized tensor dot product of the transformation with the scaled vectors.
+        As our final measure, we convert the $3\times3$ rotation for the optimizer to Euler angles, since this greatly reduces the dimensionality of the problem to be solved, leaving 6 unknowns for each image.
+        We multithreaded the energy computation to make use of our 12 core processors.
+
     \section{3D Reconstruction}
+        
         \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\
         1 get depth \& extrinsics\\
         2 use them\\
         3 improve on extrinsics.\\
-        we tried out different approaches for the reconstruction and ended up using open3d\\
+        we tried out different approaches for the reconstruction and ended up using open3D\\
         talk about modifying the extrinsics to make everything work\\
         maybe talk about integration and deintegration (used by bundle fusion as it is live and they update their reconstruction)\\
         to improve on the shitty reconstruction we wanted to optimize the extrinsics. this would nicely lead into the next section!!!\\
-        compare extrinsics to ground truth with the matlab 3d plot?}
+        compare extrinsics to ground truth with the matlab 3D plot?}
