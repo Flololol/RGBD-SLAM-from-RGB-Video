@@ -16,6 +16,7 @@
         The optimization we implemented is formulated as an error minimization problem where the total dense error is the sum of the photometric and geometric error:
         \begin{equation}
             E_{\text{dense}}(X) = E_{\text{photo}}(X) + E_{\text{geo}}(X)
+            \label{eq:edense}
         \end{equation}
         Where $X$ contains the global pose $T$ of every image.
         Both Terms are evaluated onover all valid image pairs.
@@ -93,7 +94,8 @@
             \caption[]{Visual interpretation of what happens in the error terms $E_{\text{geo}}$ and $E_{\text{phoyo}}$, described through equation~\ref{eq:vis_perspective}}
             \label{fig:vis_perspective}
         \end{figure}
-        \todo{hier muss irgendwo noch erwaehnt werden, wie wir dieses minimization problem loesen (scipy.optimize.minimize)}
+        In order to solve the minimization problem from equation~\ref{eq:edense} we use the function scipy.optimize.minimize.
+        While this is a very inefficient and slow process, it manages to obtain a more fitting set of extrinsics according to our cost function.
         \todo{hier noch ueber unsere $d_{i,k}$ solution/precomputation reden! fand ich ziemlich comfy, dass das precomputable ist (bis auf den depth teil)}
     \section{3D Reconstruction}
         \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\

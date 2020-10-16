@@ -2,21 +2,68 @@
     In this chapter we present our results for the implementation of our pose estimation and the depth map acquired from \citetitle{luo2020consistent}~\cite{luo2020consistent}.
     We try to pinpoint the problems we encountered in our pipeline by comparing our results to the synthetic dataset 'lr kt2' from \citetitle{handa:etal:ICRA2014}~\cite{handa:etal:ICRA2014}.
     \section{pose optimization}
-        Figure~\ref{fig:initial_reconstruction} shows our first valid results for one of our own videos. We were hoping to drastically improve on this results after optimizing the global poses.
+        Figure~\ref{fig:initial_reconstruction} shows our first valid results for one of our own videos.
+        We were hoping to drastically improve on this results after optimizing the global poses.
         \begin{figure}[ht]
             \centering
             \includegraphics[width=.6\textwidth]{images/initial_reconstruction.png}
             \caption{Initial reconstruction on unoptimized pose estimates on one of our own videos.}
             \label{fig:initial_reconstruction}
         \end{figure}
-        It turned out, that our method for the pose estimation described in chapter~\ref{sec:method_pose_optimization}, while not meant to be fast, was actually very computationally expensive. As the amount of frames increases, the number of valid frame pairs can potentially grow exponentially. In order to avoid computing for unreasonable amounts of time
-        \begin{itemize}
-            \item show initial reconstruction without optimization (kinda shitty)
-            \item explain that for optimization reasons we now have to only look at a subset of frames (kinda like they keyframes in bundlefusion (without combining the chunks into one keyframe..)). and to make it fair, we compare initial reconstruction with the same frames as the optimized reconstruction.
-            \item show initial reconstruction without and with optimization (both strided)
-            \item compare and TRY to show, that it improved it in some way. the ground truth data should help here. hopefully we get a lower absolute trajectory error after the optimiziation. also some qualitative results (3d reconstruction screencaps).
-            \item question if there even is a better set of extrinsics to combine the frames, leading to a potential other problem..
-        \end{itemize}
+        It turned out that our method for the pose estimation, described in chapter~\ref{sec:method_pose_optimization}, while not meant to be fast, was actually very computationally expensive.
+        As the amount of frames increases, the number of valid frame pairs can potentially grow exponentially.
+        In order to avoid computing for unreasonable amounts of time, we used a similar method to reduce the computational effort as described in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
+        While They use a hierarchy to condense the information within one chunk of 11 frames into one keyframe, we simply selected our keyframes without using the information of the remaining frames.\\
+        As we could not identify a visible improvement after the pose optimization, we ran everything on the synthetic dataset 'lr kt2' from \citetitle{handa:etal:ICRA2014}~\cite{handa:etal:ICRA2014}.
+        With the ground truth of the extrinsics we were able to properly compare our initial poses to the optimized poses.
+        To compare extrinsics from different coordinate systems we needed to find a transform to match the trajectories.
+        This transform includes rotation, scaling, and translation.
+        One option is to simply align the poses of the first frame.
+        While this is a trivial method, it does not lead to a satisfying alignment and makes it really hard to find the proper scale.
+        Results of this alignment are shown in figure~\ref{sfig:align_first_pair}.\\
+        We can observe that the alignment is not satisfactory.
+        Employing a method like ICP (iterative closest point) achieves a much better alignment.
+        We implemented an error function for the deviation of the two trajectories that takes 7 unknowns: three angles for the rotation $R$, three variables for the translation $t$, and one unknown for the scale $s$:
+        \begin{equation*}
+            E_{\text{alignment}}(R,t,s) =
+            \sum_{i=0} \left[
+                q_i - s \times Rp_i - t
+            \right]^2
+            \label{eq:ealign}
+        \end{equation*}
+        Where $q_i$ is point $i$ of the target trajectory and $p_i$ is point $i$ of the trajectory that is transformed.
+        With this error function we again used scipy.optimize.minimize to obtain the optimal transform.
+        The results are displayed in figures~\ref{sfig:align_global}~\&~\ref{sfig:align_global_opt}\\
+        \begin{figure}[ht]
+            \centering
+            \begin{subfigure}[b]{.32\textwidth}
+                \includegraphics[width=.95\textwidth]{images/align_first_pair}
+                \caption{Aligning two trajectories by aligning the first pose of both.}
+                \label{sfig:align_first_pair}
+            \end{subfigure}
+            \begin{subfigure}[b]{.32\textwidth}
+                \includegraphics[width=.95\textwidth]{images/align_global}
+                \caption{ICP-like global alignment of unoptimized extrinsics}
+                \label{sfig:align_global}
+            \end{subfigure}
+            \begin{subfigure}[b]{.32\textwidth}
+                \includegraphics[width=.95\textwidth]{images/align_global_opt}
+                \caption{ICP-like global alignment of optimized extrinsics}
+                \label{sfig:align_global_opt}
+            \end{subfigure}
+            \caption[]{\ref{sfig:align_first_pair} aligning both initial poses perfectly. \ref{sfig:align_global} ICP-like global alignment of unoptimized extrinsics. \ref{sfig:align_global_opt} ICP-like global alignment of optimized extrinsics. For both trajectories the orientation of the first pose is indicated by two crosses into the direction the camera is facing, red for ground truth and yellow for the other trajectory.}
+            \label{fig:vis_perspective}
+        \end{figure}
+        While the cost function described in equation~\ref{eq:edense} provides a lower cost for the optimized extrinsics, the alignment error from equation~\ref{eq:ealign} was actually higher than the unoptimized extrinsics.
+        So the optimized poses actually fir worse to the ground truth than the initial estimates:
+        % \begin{center}
+        %     \begin{tabular}[]{c | c}
+        %         unoptimized poses E_{\text{alignment} & optimized E_{\text{alignment}}
+        %         \hline
+
+        %     \end{tabular}
+        % \end{center}
+        As the optimized extrinsics also showed little to no improvement to the reconstruction we analyzed the quality of our depth estimates.
     \section{Consistent Depth}
         \begin{itemize}
             \item maybe lead with a screenshot from the 3d reconstruction and a relevant frame from the video that shows, that corners are rounded and the depth is obviously flawed! (protein-tuete, ecken, meine wand die auch omegarund ist)
