@@ -9,13 +9,17 @@ import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 
 class pose_refiner:
-    def __init__(self, color_dir, depth_dir, metadata, size=(80,60)):
+    def __init__(self, color_dir, depth_dir, metadata, size=(80,60), GRND_TRTH=False):
         self.ang_thresh = 50/180 * np.pi
 
         self.color_dir = color_dir
-        self.depth_dir = depth_dir
-        self.metadata = metadata
         self.size = size
+
+        self.depth_dir = depth_dir + "depth/"
+        self.depth_truth_dir = None
+        
+        self.metadata = metadata + "metadata_scaled.npz"
+        self.metadata_truth = None
 
         with np.load(self.metadata) as meta_colmap:
             intrinsics = meta_colmap["intrinsics"]
@@ -37,15 +41,41 @@ class pose_refiner:
             self.extrinsics_euler[i] = np.append(euler, translation)
             # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
 
+        self.iter = 0
         self.pair_mat = None
         self.depth = None
+        self.depth_truth = None
         self.RGB = None
         self.luminance = None
         self.normals = None
         self.fresh = True
         self.extrinsics_opt = None
 
-        self.iter = 0
+        self.GRND_TRTH = GRND_TRTH
+        if self.GRND_TRTH:
+            self.depth_truth_dir = depth_dir + "depth_truth/"
+            self.metadata_truth = metadata + "livingRoom2n.gt.sim"
+            extr_truth = []
+            f = open(self.metadata_truth, "r")
+            for l in f:
+                if len(l) != 1:
+                    split = l.split(sep=' ')
+                    for s in split:
+                        extr_truth.append(float(s))
+            
+            extr_truth = np.array(extr_truth)
+            extr_truth = extr_truth.reshape((int(extr_truth.shape[0]/12), 3, 4))
+
+            self.N = np.min([extr_truth.shape[0], self.extrinsics.shape[0]]) #somehow we're missing 1 extrinsics.. we'll just assume it is the last one that is missing
+
+            ROT = np.diag([1, -1, 1])
+            for i in range(self.N):
+                extr_truth[i,:3,:3] = ROT.dot(extr_truth[i,:3,:3]).dot(ROT.T)
+                extr_truth[i,:3,3] = ROT.dot(extr_truth[i,:3,3])
+            
+            self.extrinsics_truth = extr_truth[:self.N]
+            self.extrinsics = self.extrinsics[:self.N]
+            self.extrinsics_euler = self.extrinsics_euler[:self.N]
 
     def filter_framepairs(self, overlap=0.2, save=True):
         if not self.fresh and os.path.isfile("framepairs.npz"):
@@ -99,17 +129,32 @@ class pose_refiner:
     def load_data(self):
         rgbs = []
         depths = []
+        depth_truth = []
         fmt = "frame_{:06d}.png"
         fmt_raw = "frame_{:06d}.raw"
+        fmt_truth = "frame_{:06d}.depth"
+        fmt_numpy = "frame_{:06d}.npy"
         print("loading data..")
         for i in tqdm(range(self.N)):
             rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i)).resize(self.size)))
             dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
             dpt = abs(np.array(Image.fromarray(dpt).resize(self.size))-1)
             depths.append(dpt)
+            
+            if self.GRND_TRTH:
+                npy = self.depth_truth_dir + fmt_numpy.format(i)
+                if os.path.isfile(npy):
+                    dpt_trth = np.load(npy)
+                else:
+                    dpt_trth = np.loadtxt(self.depth_truth_dir + fmt_truth.format(i)).reshape(self.size[1],self.size[0])
+                    np.save(npy, dpt_trth)
+
+                depth_truth.append(dpt_trth)
 
         self.RGB = np.array(rgbs)
         self.depth = np.array(depths)
+        if self.GRND_TRTH:
+            self.depth_truth = np.array(depth_truth)
 
         #prepare array 'diks' that, when multiplied with the depth, yields the 3d point 'dik' in camera coordinates (for image i and pixel k)
         px = np.repeat(np.arange(self.size[0])[np.newaxis, :], self.size[1], axis=0)
@@ -314,16 +359,37 @@ class pose_refiner:
 
     def resize_stride(self, stride):
         self.extrinsics = self.extrinsics[::stride]
+        self.N = self.extrinsics.shape[0]
         self.extrinsics_euler = self.extrinsics_euler[::stride]
         
         self.RGB = self.RGB[::stride]
         self.depth = self.depth[::stride]
 
-        self.luminance = self.luminance[::stride]
-        self.normals = self.normals[::stride]
+        if self.luminance is not None:
+            self.luminance = self.luminance[::stride]
+            self.normals = self.normals[::stride]
+            self.filter_framepairs(save=False)
 
+        if self.GRND_TRTH:
+            self.extrinsics_truth = self.extrinsics_truth[::stride]
+            self.depth_truth = self.depth_truth[::stride]
+
+    def cut_length(self, length):
+        self.extrinsics = self.extrinsics[:length]
         self.N = self.extrinsics.shape[0]
-        self.filter_framepairs(save=False)
+        self.extrinsics_euler = self.extrinsics_euler[:length]
+        
+        self.RGB = self.RGB[:length]
+        self.depth = self.depth[:length]
+
+        if self.luminance is not None:
+            self.luminance = self.luminance[:length]
+            self.normals = self.normals[:length]
+            self.filter_framepairs(save=False)
+
+        if self.GRND_TRTH:
+            self.extrinsics_truth = self.extrinsics_truth[:length]
+            self.depth_truth = self.depth_truth[:length]
 
     def prepare(self):
         self.load_data()

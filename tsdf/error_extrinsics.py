@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 
-peter = True
+peter = False
 size = (640, 480)
 use_opt = False
 global_align = True
@@ -54,47 +54,32 @@ if __name__ == "__main__":
     # extr_opt = "extrinsics_opt_nm_OPT"
     extr_opt = "./{}.npz".format(extr_opt)
     
-    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
-    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
+    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/room/"
+    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
+
     if peter:
         base_dir = "/home/noxx/Documents/projects/consistent_depth/results/lr_kt2_flo/"
-        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
     color_dir = base_dir+"color_full/"
-    metadata = base_dir+"R_hierarchical2_mc/metadata_scaled.npz"
-    extr_truth_path = base_dir+"R_hierarchical2_mc/livingRoom2n.gt.sim"
-
-    extr_truth = []
-    f = open(extr_truth_path, "r")
-    for l in f:
-        if len(l) != 1:
-            split = l.split(sep=' ')
-            for s in split:
-                extr_truth.append(float(s))
+    metadata = base_dir+"R_hierarchical2_mc/"
     
-    extr_truth = np.array(extr_truth)
-    extr_truth = extr_truth.reshape((int(extr_truth.shape[0]/12), 3, 4))
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=True)
+    refiner.load_data()
 
     if use_opt:
         with np.load(extr_opt) as extr_opt:
             extr_ours = extr_opt["extrinsics_opt"]
+        refiner.fresh = False
+        refiner.preprocess_data()
+        refiner.resize_stride(int(refiner.extrinsics.shape[0]/extr_ours.shape[0]+1))
+        extr_truth = refiner.extrinsics_truth
     else:
-        refiner = pose_refiner(color_dir, depth_dir, metadata, size=size)
-        refiner.load_data()
+        refiner.fresh = False
+        refiner.preprocess_data()
+        refiner.resize_stride(stride)
         extr_ours = refiner.extrinsics
-
-    real_N = np.min([extr_truth.shape[0], extr_ours.shape[0]]) #somehow we're missing 1 extrinsics.. we'll just assume it is the last one that is missing
-    extr_ours = extr_ours[:real_N]
-    extr_truth = extr_truth[:real_N]
-    #stride
-    extr_ours = extr_ours[::stride]
-    extr_truth = extr_truth[::stride]
-    real_N = extr_ours.shape[0]
-
-    COL = np.diag([1, -1, 1])
-    for i in range(real_N):
-        extr_truth[i,:3,:3] = COL.dot(extr_truth[i,:3,:3]).dot(COL.T)
-        extr_truth[i,:3,3] = COL.dot(extr_truth[i,:3,3])
+        extr_truth = refiner.extrinsics_truth
 
     if global_align:
         icp = ICP(extr_ours, extr_truth)
@@ -102,7 +87,7 @@ if __name__ == "__main__":
         extr_ours = icp.source
     else:
         rotation_fix = extr_truth[0,:3,:3].dot(np.linalg.inv(extr_ours[0,:3,:3]))
-        for i in range(real_N):
+        for i in range(refiner.N):
             extr_ours[i,:3,:3] = rotation_fix.dot(extr_ours[i,:3,:3])
         
         #fix translation offset by moving both initial images to the origin
@@ -114,16 +99,16 @@ if __name__ == "__main__":
 
         extr_ours[:,:3,3] = align_scale*extr_ours[:,:3,3]
     
-    extra_row = np.zeros((real_N,1,4))
+    extra_row = np.zeros((refiner.N,1,4))
     extra_row[:,0,3] = 1
 
-    cam_t = np.empty((real_N, 4))
-    cam_o = np.empty((real_N, 4))
-    points_t = np.empty((real_N, 2, 4))
-    points_o = np.empty((real_N, 2, 4))
+    cam_t = np.empty((refiner.N, 4))
+    cam_o = np.empty((refiner.N, 4))
+    points_t = np.empty((refiner.N, 2, 4))
+    points_o = np.empty((refiner.N, 2, 4))
     extr_ours = np.concatenate((extr_ours, extra_row), axis=1)
     extr_truth = np.concatenate((extr_truth, extra_row), axis=1)
-    for i in range(real_N):
+    for i in range(refiner.N):
         #ground truth
         cam_t[i] = extr_truth[i].dot(np.array([0,0,0,1]))
         cam_t[i] /= cam_t[i,3]

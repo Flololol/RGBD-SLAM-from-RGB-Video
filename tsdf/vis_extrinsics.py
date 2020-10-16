@@ -3,9 +3,9 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from pose_refiner import pose_refiner
 
-peter = True
-include_opt = True
-size = (1280, 720)
+peter = False
+include_opt = False
+size = (1920, 1080)
 
 if __name__ == "__main__":
     eps_euler = .01 #x degree step size in terms of rotation
@@ -14,15 +14,15 @@ if __name__ == "__main__":
     # extr_opt = "extrinsics_opt_0.01_0.0005_NO_EPS"
     extr_opt = "./{}.npz".format(extr_opt)
 
-    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
-    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
+    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/desk/"
+    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
     if peter:
         base_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/"
-        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
-    color_dir = base_dir+"color_down_png/"
-    # color_dir = base_dir+"color_full/"
-    metadata = base_dir+"R_hierarchical2_mc/metadata_scaled.npz"
+    # color_dir = base_dir+"color_down_png/"
+    color_dir = base_dir+"color_full/"
+    metadata = base_dir+"R_hierarchical2_mc/"
 
     refiner = pose_refiner(color_dir, depth_dir, metadata, size=size)
     refiner.load_data()

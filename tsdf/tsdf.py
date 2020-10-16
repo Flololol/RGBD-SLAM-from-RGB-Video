@@ -4,11 +4,17 @@ import struct
 from PIL import Image
 from tqdm import tqdm
 from pose_refiner import pose_refiner
+from error_extrinsics import ICP
+from error_depth import DepthScale
 
-peter = True
-use_opt = True
+peter = False
+use_opt = False
+use_GT = True
 img1_idx = 0
-size = (1920, 1080)
+size = (640, 480)
+CUT = False
+CUT_N = 1
+stride = 1
 
 if __name__ == "__main__":
     eps_euler = .01 #x degree step size in terms of rotation
@@ -17,19 +23,18 @@ if __name__ == "__main__":
     # extr_opt = "extrinsics_opt_nelder_mead_it5000"
     extr_opt = "./{}.npz".format(extr_opt)
 
-    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/debug/"
-    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS2_Oadam/depth/"
+    base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/room/"
+    depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
     if peter:
         base_dir = "/home/noxx/Documents/projects/consistent_depth/results/debug03/"
-        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/depth/"
+        depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
-    color_dir = base_dir+"color_down_png/"
+    # color_dir = base_dir+"color_down_png/"
     color_dir = base_dir+"color_full/"
-    metadata = base_dir+"R_hierarchical2_mc/metadata_scaled.npz"
+    metadata = base_dir+"R_hierarchical2_mc/"
 
-    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size)
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=use_GT)
     refiner.load_data()
-    extrinsics = refiner.extrinsics
 
     if use_opt:
         with np.load(extr_opt) as extr_opt:
@@ -37,8 +42,23 @@ if __name__ == "__main__":
         refiner.fresh = False
         refiner.preprocess_data()
         refiner.resize_stride(int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]+1))
+        refiner.extrinsics_opt = extrinsics_opt
         extrinsics = extrinsics_opt
         # extrinsics = refiner.extrinsics
+    elif use_GT:
+        # refiner.resize_stride(stride)
+        # refiner.cut_length(stride)
+        icp = ICP(refiner.extrinsics_truth, refiner.extrinsics)
+        transform = icp.fit()
+        refiner.extrinsics_truth = icp.source
+        dptScale = DepthScale(refiner)
+        scale = dptScale.fit_all()
+        refiner.depth_truth = refiner.depth_truth.astype(np.float32) / scale
+        extrinsics = refiner.extrinsics_truth
+        # extrinsics = refiner.extrinsics
+    else:
+        refiner.resize_stride(stride)
+        extrinsics = refiner.extrinsics
 
     volume = o3d.integration.ScalableTSDFVolume(
         voxel_length = 1.0 / 512,
@@ -48,15 +68,16 @@ if __name__ == "__main__":
 
     fx, fy, cx, cy = refiner.intrinsics[0,0], refiner.intrinsics[1,1], refiner.intrinsics[0,2], refiner.intrinsics[1,2]
     intr = o3d.camera.PinholeCameraIntrinsic(*refiner.size, fx, fy, cx, cy)
-
+    
     # single image visualization:
     print("integrating into single.ply")
-    depth = refiner.depth[img1_idx]
+    
+    if use_GT:
+        depth = refiner.depth_truth[img1_idx]
+    else:
+        depth = refiner.depth[img1_idx]
+
     color = refiner.RGB[img1_idx]
-    # plt.clf()
-    # plt.imshow(depth, cmap='gray')
-    # plt.show()
-    # exit()
 
     depth = o3d.geometry.Image(depth)
     color = o3d.geometry.Image(color)
@@ -69,28 +90,34 @@ if __name__ == "__main__":
 
     single = volume.extract_triangle_mesh()
     single.compute_vertex_normals()
+    
     o3d.io.write_triangle_mesh("single.ply", single)
     #ptc = volume.extract_voxel_point_cloud()
     #o3d.io.write_point_cloud("single_cld.pcd", ptc)
     volume.reset()
     print("single.ply done.")
+    # exit()
 
     # full reconstruction
     print("integrating into mesh.ply")
     for i, ext in enumerate(tqdm(extrinsics)):
         ext = np.vstack((ext, np.array([0,0,0,1])))
         ext = np.linalg.inv(ext)
-        cur_d = refiner.depth[i]
+        if use_GT:
+            cur_d = refiner.depth_truth[i]
+        else:
+            cur_d = refiner.depth[i]
         cur_c = refiner.RGB[i]
-        cut = 50
-        cur_d[:cut,:] = 0
-        cur_d[:,:cut] = 0
-        cur_c[:cut,:] = 0
-        cur_c[:,:cut] = 0
-        cur_d[-cut:,:] = 0
-        cur_d[:,-cut:] = 0
-        cur_c[-cut:,:] = 0
-        cur_c[:,-cut:] = 0
+        if CUT:
+            cut = CUT_N
+            cur_d[:cut,:] = 0
+            cur_d[:,:cut] = 0
+            cur_c[:cut,:] = 0
+            cur_c[:,:cut] = 0
+            cur_d[-cut:,:] = 0
+            cur_d[:,-cut:] = 0
+            cur_c[-cut:,:] = 0
+            cur_c[:,-cut:] = 0
         depth = o3d.geometry.Image(cur_d)
         color = o3d.geometry.Image(cur_c)
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, depth_scale=1.0, convert_rgb_to_intensity=False, depth_trunc=1.0)
@@ -103,6 +130,7 @@ if __name__ == "__main__":
     mesh = volume.extract_triangle_mesh()
     mesh.compute_vertex_normals()
     o3d.io.write_triangle_mesh("mesh.ply", mesh)
+    # o3d.visualization.draw_geometries([mesh])
     #ptc = volume.extract_voxel_point_cloud()
     #o3d.io.write_point_cloud("cld.pcd", ptc)
     #o3d.visualization.draw_geometries([mesh], front=[0.5297, -0.1873, -0.8272], lookat=[2.0712, 2.0312, 1.7251], up=[-0.0558, -0.9809, 0.1864], zoom=0.47)
