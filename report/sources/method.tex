@@ -36,7 +36,7 @@
         We have no idea what causes this problem and how we should counter it, leaving the depth maps from this approach flawed.
         We still use these results as well as the sparsely optimized COLMAP parameters for further optimization.
     
-    \section{Pose Optimization}
+    \section{Pose Optimization}\label{sec:method_pose_optimization}
         Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
         Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
         The hierarchical structure they propose is required for their online reconstruction as it drastically reduces the computational requirements.
@@ -47,6 +47,7 @@
         The optimization we implemented is formulated as an error minimization problem where the total dense error is the sum of the photometric and geometric error:
         \begin{equation}
             E_{\text{dense}}(X) = E_{\text{photo}}(X) + E_{\text{geo}}(X)
+            \label{eq:edense}
         \end{equation}
         Where $X$ contains the global pose $T$ of every image.
         Both Terms are evaluated onover all valid image pairs.
@@ -104,7 +105,7 @@
         With the inverse of the intrinsics matrix we retrieve the pixel coordinates that this point would fall into if viewed from the new position.
         For the visualization we write the color information of every pixel from image $i$ into the new pixel position in image $j$.
         All pixels in image $j$ that haven't been hit are set to zero.
-        \begin{figure}[h]
+        \begin{figure}[ht]
             \centering
             \begin{subfigure}[b]{.45\textwidth}
                 \includegraphics[width=.95\textwidth]{images/vis_perspective_01}
@@ -124,6 +125,8 @@
             \caption[]{Visual interpretation of what happens in the error terms $E_{\text{geo}}$ and $E_{\text{phoyo}}$, described through equation~\ref{eq:vis_perspective}}
             \label{fig:vis_perspective}
         \end{figure}
+        In order to solve the minimization problem from equation~\ref{eq:edense} we use the function scipy.optimize.minimize.
+        While this is a very inefficient and slow process, it manages to obtain a more fitting set of extrinsics according to our cost function.
         \todo{hier noch ueber unsere $d_{i,k}$ solution/precomputation reden! fand ich ziemlich comfy, dass das precomputable ist (bis auf den depth teil)}
     \section{3D Reconstruction}
         \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\

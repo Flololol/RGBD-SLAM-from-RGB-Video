@@ -7,12 +7,12 @@ from pose_refiner import pose_refiner
 from error_extrinsics import ICP
 from error_depth import DepthScale
 
-peter = False
-# use_extr = 'our'
+peter = True
+use_extr = 'our'
 # use_extr = 'opt'
-use_extr = 'tru'
-# use_depth = 'our'
-use_depth = 'tru'
+# use_extr = 'tru'
+use_depth = 'our'
+# use_depth = 'tru'
 img1_idx = 0
 size = (640, 480)
 CUT = False
@@ -29,14 +29,16 @@ if __name__ == "__main__":
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/room/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
     if peter:
-        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/lr_kt2_flo/"
+        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/"
         depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
     # color_dir = base_dir+"color_down_png/"
     color_dir = base_dir+"color_full/"
     metadata = base_dir+"R_hierarchical2_mc/"
 
-    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=True)
+
+    truth_relevant = (use_depth=='tru' or use_extr=='tru')
+    refiner = pose_refiner(color_dir, depth_dir, metadata, size=size, GRND_TRTH=truth_relevant)
     refiner.load_data()
 
     if use_extr == 'opt':
@@ -44,27 +46,34 @@ if __name__ == "__main__":
             extrinsics_opt = extr_opt["extrinsics_opt"]
         stride = int(refiner.extrinsics.shape[0]/extrinsics_opt.shape[0]+1)
         refiner.resize_stride(stride)
-        icp = ICP(extrinsics_opt, refiner.extrinsics_truth)
-        icp.fit()
-        refiner.extrinsics_opt = icp.source
-        extrinsics = refiner.extrinsics_opt
+        if truth_relevant:
+            icp = ICP(extrinsics_opt, refiner.extrinsics_truth)
+            icp.fit()
+            extrinsics = icp.source
+        else:
+            extrinsics = extrinsics_opt
     elif use_extr == 'tru':
         refiner.resize_stride(stride)
         extrinsics = refiner.extrinsics_truth
     else:
         refiner.resize_stride(stride)
-        icp = ICP(refiner.extrinsics, refiner.extrinsics_truth)
-        icp.fit()
-        refiner.extrinsics = icp.source
-        extrinsics = refiner.extrinsics
+        if truth_relevant:
+            icp = ICP(refiner.extrinsics, refiner.extrinsics_truth)
+            icp.fit()
+            extrinsics = icp.source
+        else:
+            extrinsics = refiner.extrinsics
     
     if use_depth == 'tru':
         refiner.depth_truth = refiner.depth_truth.astype(np.float32) #o3d doesnt like doubles
         depth = refiner.depth_truth
     elif use_depth == 'our':
-        depthscale = DepthScale(refiner)
-        scale = depthscale.fit_all(mode='all')
-        depth = refiner.depth * scale
+        if truth_relevant:
+            depthscale = DepthScale(refiner)
+            scale = depthscale.fit_all(mode='all')
+            depth = refiner.depth * scale
+        else:
+            depth = refiner.depth
 
     volume = o3d.integration.ScalableTSDFVolume(
         voxel_length = 1.0 / 200,
