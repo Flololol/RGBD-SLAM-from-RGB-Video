@@ -135,6 +135,7 @@ class pose_refiner:
         fmt_truth = "frame_{:06d}.depth"
         fmt_numpy = "frame_{:06d}.npy"
         print("loading data..")
+        fx, fy, cx, cy = self.intrinsics[0,0], self.intrinsics[1,1], self.intrinsics[0,2], self.intrinsics[1,2]
         for i in tqdm(range(self.N)):
             rgbs.append(np.array(Image.open(self.color_dir + fmt.format(i)).resize(self.size)))
             dpt = load_raw_float32_image(self.depth_dir + fmt_raw.format(i))
@@ -144,9 +145,13 @@ class pose_refiner:
             if self.GRND_TRTH:
                 npy = self.depth_truth_dir + fmt_numpy.format(i)
                 if os.path.isfile(npy):
+                # if False:
                     dpt_trth = np.load(npy)
                 else:
                     dpt_trth = np.loadtxt(self.depth_truth_dir + fmt_truth.format(i)).reshape(self.size[1],self.size[0])
+                    for y in range(dpt_trth.shape[0]):
+                        for x in range(dpt_trth.shape[1]):
+                            dpt_trth[y, x] = dpt_trth[y, x] / np.sqrt(((x-cx)/fx)**2 + ((y-cy)/fy)**2 + 1)
                     np.save(npy, dpt_trth)
 
                 depth_truth.append(dpt_trth)
@@ -423,6 +428,7 @@ def resize_intrinsics(intrinsics, size_old, size_new):
     fy *= ratio[1]
     cx *= ratio[0]
     cy *= ratio[1]
+    print('resizing intrinsics from {} to {}'.format(size_old, size_new))
     return fx, fy, cx, cy
 
 def load_raw_float32_image(file_name):
