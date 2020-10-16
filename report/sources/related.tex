@@ -1,6 +1,7 @@
 \chapter{Related Work}
     Depth estimation from monocular video inputs is a challenging problem.
-    It is ill-posed, since the results are ambiguous in terms of scale, and thus not unique, and the solutions usually do not change continuously, since depending on the projection of an object on the RGB frame, its depth interpretation can vary significantly.
+    It is ill-posed as the results are ambiguous in terms of scale, and thus, not unique.
+    Solutions for single frames usually do not change continuously, since, depending on the projection of an object on the RGB frame, its depth interpretation can vary significantly.
     With the abundance of mobile recording devices and therefore monocular videos, the single-shot estimation of accurate depth maps has become more and more attention in recent years.\\
     There is a variety of CNN models for depth estimation, which are trained with different methods and datasets.
     Ranftl et al. in \citetitle{ranftl2020robust}~\cite{ranftl2020robust} propose their Midas v2 model, which was trained with a robust training objective, that is invariant to changes of range and scale of the target depth.
