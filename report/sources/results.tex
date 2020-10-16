@@ -51,23 +51,23 @@
                 \caption{ICP-like global alignment of optimized extrinsics}
                 \label{sfig:align_global_opt}
             \end{subfigure}
-            \caption[]{\ref{sfig:align_first_pair} aligning both initial poses perfectly. \ref{sfig:align_global} ICP-like global alignment of unoptimized extrinsics. \ref{sfig:align_global_opt} ICP-like global alignment of optimized extrinsics. For both trajectories the orientation of the first pose is indicated by two crosses into the direction the camera is facing, red for ground truth and yellow for the other trajectory.}
+            \caption[]{\ref{sfig:align_first_pair} aligning both initial poses perfectly. \ref{sfig:align_global} ICP-like global alignment of unoptimized extrinsics. \ref{sfig:align_global_opt} ICP-like global alignment of optimized extrinsics. For both trajectories the orientation of the first pose is indicated by two crosses into the direction the camera is facing, red for ground truth and yellow for the other trajectory. \ref{sfig:align_global}~\&~\ref{sfig:align_global_opt} were reduced with a stride of 20.}
             \label{fig:vis_perspective}
         \end{figure}
         While the cost function described in equation~\ref{eq:edense} provides a lower cost for the optimized extrinsics, the alignment error from equation~\ref{eq:ealign} was actually higher than the unoptimized extrinsics.
         So the optimized poses actually fir worse to the ground truth than the initial estimates:
         \begin{center}
             \begin{tabular}[]{c | c | c}
-                a & unoptimized poses & optimized poses\\
+                & unoptimized poses & optimized poses\\
                 \hline
                 $E_{\text{dense}}$ & $1.7203$ & $1.6081$\\
                 \hline
                 $E_{\text{alignment}}$ & $1.2420\times10^{-2}$ & $1.2998\times10^{-2}$
             \end{tabular}
         \end{center}
-        As the optimized extrinsics also showed little to no improvement to the reconstruction we analyzed the quality of our depth estimates.
+        As the optimized extrinsics also showed little to no improvement to the 3D reconstruction we analyzed the quality of our depth estimates.
     \section{Consistent Depth}
         \begin{itemize}
-            \item maybe lead with a screenshot from the 3d reconstruction and a relevant frame from the video that shows, that corners are rounded and the depth is obviously flawed! (protein-tuete, ecken, meine wand die auch omegarund ist)
+            \item maybe lead with a screenshot from the 3D reconstruction and a relevant frame from the video that shows, that corners are rounded and the depth is obviously flawed! (protein-tuete, ecken, meine wand die auch omegarund ist)
             \item describe how we compared the "consistent depth depth" to the ground truth --> leads to error heatmap that shows how off the depth estimate is
         \end{itemize}
