@@ -5,7 +5,7 @@
         \todo{this gives us depth and colmap extrinsics.\\
         talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.\\
         main point here is, that we get a depth estimate and extrinsics estimate!}
-    \section{Pose Optimization}
+    \section{Pose Optimization}\label{sec:method_pose_optimization}
         Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
         Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
         The hierarchical structure they propose is required for their online reconstruction as it drastically reduces the computational requirements.
