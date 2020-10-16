@@ -73,30 +73,26 @@
         With the inverse of the intrinsics matrix we retrieve the pixel coordinates that this point would fall into if viewed from the new position.
         For the visualization we write the color information of every pixel from image $i$ into the new pixel position in image $j$.
         All pixels in image $j$ that haven't been hit are set to zero.
-
         \begin{figure}[h]
             \centering
-            \begin{subfigure}[b]{.3\textwidth}
-                \includegraphics[scale=0.5]{images/vis_perspective_01}
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_01}
+                \caption{original image $i$}
+                \label{sfig:i_original}
             \end{subfigure}
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_03}
+                \caption{original image $j$}
+                \label{sfig:j_original}
+            \end{subfigure}
+            \begin{subfigure}[b]{.45\textwidth}
+                \includegraphics[width=.95\textwidth]{images/vis_perspective_02}
+                \caption{information from image $i$ viewed from the camera position of image $j$}
+                \label{sfig:i_from_j}
+            \end{subfigure}
+            \caption[]{Visual interpretation of what happens in the error terms $E_{\text{geo}}$ and $E_{\text{phoyo}}$, described through equation~\ref{eq:vis_perspective}}
+            \label{fig:vis_perspective}
         \end{figure}
-
-        % \begin{figure}[ht]
-            % \centering
-            % \begin{subfigure}[b]{width=.2\linewidth}
-            %     \includegraphics[width=.2\linewidth]{images/vis_perspective_01}
-            %     \label{fuckoff}
-            %     \caption[]{fuckoff}
-            % \end{subfigure}
-            % \begin{subfigure}[b]{width=.45\textwidth}
-            %     \includegraphics[width=.45\textwidth]{images/vis_perspective_02}
-            % \end{subfigure}
-            % \begin{subfigure}[b]{width=.45\textwidth}
-            %     \includegraphics[width=.45\textwidth]{images/vis_perspective_03}
-            % \end{subfigure}
-        %     \caption[]{~\sref{} displays the normal image $i$. }
-        %     \label{fig:vis_perspective}
-        % \end{figure}
         \todo{hier noch ueber unsere $d_{i,k}$ solution/precomputation reden! fand ich ziemlich comfy, dass das precomputable ist (bis auf den depth teil)}
     \section{3D Reconstruction}
         \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\
