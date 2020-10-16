@@ -17,7 +17,7 @@ class pose_refiner:
 
         self.depth_dir = depth_dir + "depth/"
         self.depth_truth_dir = None
-        
+
         self.metadata = metadata + "metadata_scaled.npz"
         self.metadata_truth = None
 
