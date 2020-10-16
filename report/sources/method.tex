@@ -1,10 +1,41 @@
 \chapter{Method}
-    Our idea was to use \citetitle{luo2020consistent}~\cite{luo2020consistent} to obtain depth estimates that we can use for 3D reconstructions.
-    Before the 3D reconstruction we wanted to improve the pose estimates from COLMAP, that are obtain during the depth estimation, by employing methods from \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
+    Our idea was to apply the method from \citetitle{luo2020consistent}~\cite{luo2020consistent} to fine-tune a CNN and use the refined depth estimates as well as the inherently produced COLMAP camera in- and extrinsics for 3D reconstructions.
+    Before reconstructing, we wanted to improve the initial pose estimates from COLMAP with an energy minimization approach in the fashion of \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
+
     \section{Depth Estimation}
-        \todo{this gives us depth and colmap extrinsics.\\
-        talk about problems during consistent depth (holes in video) and potentially our attempts at fixing them.\\
-        main point here is, that we get a depth estimate and extrinsics estimate!}
+        The geometric loss proposed in \citetitle{luo2020consistent} already requires a lot of geometric information of the scene, which is also required for 3D reconstruction.
+        Luo et al. use COLMAP to extract SIFT points from every frame of the input video and then match these points exhaustively to calculate precise camera parameters for the entire scene.
+        They then create accurate masks of optical flow between two frames through forward-backward consistency check of FlowNet estimates.
+        If enough pixels are valid, a pair of frames is used for training.
+        During training, they project the depth estimates of one frame to the coordinate frame of the other image and compare it with the values of that prediction at the positions given through the optical flow masks.
+        The loss is comprised of two parts, spatial and disparity loss.
+        The spatial loss is the difference between the target pixel position through projection and the position from FlowNet.
+        The disparity loss gives the absolute distance between the z-components of the two depth vectors in a common 3D camera space.
+        They combine these losses and backpropagate them through the depth estimation network.
+        Since the camera in- and extrinsics, as well as the flow masks, are fixed for the fine-tuning, the only way for the model to reduce this error is to produce depth maps which result in basically unique points in the common global coordinate frame for this input.
+        They use every consecutive frame pair for training, resulting in temporal consistency, but also more distant pairs in a hierarchical manner, for higher geometric consistency.\\
+        To make the depth maps of the CNN comparable to the extrinsics produced by COLMAP, they have to calibrate the relative scale.
+        In order to do this, they let COLMAP produce semi-dense depth estimates from the sparse reconstruction results and compute the difference in ratio to the CNN for every frame.
+        They then simply divide the camera translations by the mean of the scales to bring the extrinsics into the range of the initial CNN depth maps.\\
+        This brings us to our first problem with the realization of the consistent depth maps.
+        For the calibration of the scale, they invert the semi-dense COLMAP depth map by simply doing $inv\_cmp\_dpt = 1 / cmp\_dpt$ in their code.
+        During execution, this lead to cases where we encountered division by zero in the scale calibration.
+        We believe that this made the training unstable, since we had the issue that the loss of the network sometimes became NaN during an epoch.
+        We tried to fix this by adding a small $eps$ to the COLMAP depth maps and afterwards we did not encounter NaNs or division by zero anymore.\\
+        We don't want to blame the issues entirely on this, since we did not do enough testing to rule out other possibilities, and since this did not fix our second issue with the consistent depth maps, namely holes in the predicted depth map at random locations (but consistent for the sequence).
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.33\textwidth]{images/hole.png}
+            \includegraphics[width=0.33\textwidth]{images/hole_zoom.png}
+            \includegraphics[width=0.33\textwidth]{images/hole_recon.png}
+            \caption{Hole in the top corner of the image with basically infinite depth leads to huge deformations of the 3D reconstruction.}
+            \label{holes}
+        \end{figure}
+        Figure~\ref{holes} shows an example of such a black hole present in the predictions for the ground truth dataset.
+        These holes add a massive error to the reconstruction, influencing the scaling of the image and making consistent volume integration at these locations impossible.
+        We have no idea what causes this problem and how we should counter it, leaving the depth maps from this approach flawed.
+        We still use these results as well as the sparsely optimized COLMAP parameters for further optimization.
+    
     \section{Pose Optimization}
         Using the estimates for the depth and global pose from the previous step, we technically have everything for a 3D reconstruction.
         Before that we wanted to improve on the pose estimation by closely following the methods employed in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
