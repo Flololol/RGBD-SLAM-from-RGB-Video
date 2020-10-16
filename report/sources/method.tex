@@ -75,7 +75,7 @@
             \label{eq:egeo}
         \end{equation}
         While $I_i(x,y)$ gives us the luminance gradient at an image coordinate $(x,y)$ within image $i$, $D_i(x,y)$ provides us with the depth at the specified pixel in image $i$.
-        $n_{i,k}$ is the normal vector at pixel $k$ in image $i$, we compute the normals with open3d.\\
+        $n_{i,k}$ is the normal vector at pixel $k$ in image $i$, we compute the normals with Open3D.\\
         We believe some further elaboration regarding equations~\ref{eq:ephoto} and \ref{eq:egeo} may be useful.
         For one, the left part of equation~\ref{eq:ephoto},
         \begin{equation*}
@@ -137,13 +137,9 @@
         We multithreaded the energy computation to make use of our 12 core processors.
 
     \section{3D Reconstruction}
-        
-        \todo{my reason to skip pose estimation for now is, that it is a bit of a story.\\
-        1 get depth \& extrinsics\\
-        2 use them\\
-        3 improve on extrinsics.\\
-        we tried out different approaches for the reconstruction and ended up using open3D\\
-        talk about modifying the extrinsics to make everything work\\
-        maybe talk about integration and deintegration (used by bundle fusion as it is live and they update their reconstruction)\\
-        to improve on the shitty reconstruction we wanted to optimize the extrinsics. this would nicely lead into the next section!!!\\
-        compare extrinsics to ground truth with the matlab 3D plot?}
+        For creating an actually explorable 3D reconstruction from our world positions and depth estimates, we tried several approaches and ended up using Open3D.
+        It provides us with a scalable, memory efficient TSDF volume implementation, that does multithreaded integration of RGB-D frames by default.
+        Deintegration like proposed in Bundle Fusion is not possible, but also not neccessary for our offline approach.
+        These volumes directly come with features that allow us to extract textured meshes and visualize them interactively.
+        To make everything work together, we have to bring the COLMAP extrinsics in range with the depth predictions, using the scales computed for the training of the depth estimation.
+        If the given extrinsics and depth maps are correct, the resulting volume after integration should provide us with a high quality reconstruction.
