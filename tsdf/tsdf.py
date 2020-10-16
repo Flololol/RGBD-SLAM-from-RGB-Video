@@ -8,9 +8,9 @@ from error_extrinsics import ICP
 from error_depth import DepthScale
 
 peter = False
-use_extr = 'our'
+# use_extr = 'our'
 # use_extr = 'opt'
-# use_extr = 'tru'
+use_extr = 'tru'
 # use_depth = 'our'
 use_depth = 'tru'
 img1_idx = 0
