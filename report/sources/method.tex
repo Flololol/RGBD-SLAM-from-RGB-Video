@@ -135,7 +135,7 @@
         and finally perform a single vectorized tensor dot product of the transformation with the scaled vectors.
         As our final measure, we convert the $3\times3$ rotation for the optimizer to Euler angles, since this greatly reduces the dimensionality of the problem to be solved, leaving 6 unknowns for each image.
         We multithreaded the energy computation to make use of our 12 core processors.
-
+    \newpage
     \section{3D Reconstruction}
         For creating an actually explorable 3D reconstruction from our world positions and depth estimates, we tried several approaches and ended up using Open3D.
         It provides us with a scalable, memory efficient TSDF volume implementation, that does multithreaded integration of RGB-D frames by default.
