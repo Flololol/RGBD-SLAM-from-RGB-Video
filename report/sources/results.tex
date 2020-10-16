@@ -9,7 +9,7 @@
             \includegraphics[width=.6\textwidth]{images/initial_reconstruction.png}
             \caption{Initial reconstruction on unoptimized pose estimates on one of our own videos.}
             \label{fig:initial_reconstruction}
-        \end{figure}
+        \end{figure}\\
         It turned out that our method for the pose estimation, described in chapter~\ref{sec:method_pose_optimization}, while not meant to be fast, was actually very computationally expensive.
         As the amount of frames increases, the number of valid frame pairs can potentially grow exponentially.
         In order to avoid computing for unreasonable amounts of time, we used a similar method to reduce the computational effort as described in \citetitle{dai2017bundlefusion}~\cite{dai2017bundlefusion}.
@@ -53,7 +53,7 @@
             \end{subfigure}
             \caption[]{\ref{sfig:align_first_pair} aligning both initial poses perfectly. \ref{sfig:align_global} ICP-like global alignment of unoptimized extrinsics. \ref{sfig:align_global_opt} ICP-like global alignment of optimized extrinsics. For both trajectories the orientation of the first pose is indicated by two crosses into the direction the camera is facing, red for ground truth and yellow for the other trajectory. \ref{sfig:align_global}~\&~\ref{sfig:align_global_opt} were reduced with a stride of 20.}
             \label{fig:vis_perspective}
-        \end{figure}
+        \end{figure}\\
         While the cost function described in equation~\ref{eq:edense} provides a lower cost for the optimized extrinsics, the alignment error from equation~\ref{eq:ealign} was actually higher than the unoptimized extrinsics.
         So the optimized poses actually fir worse to the ground truth than the initial estimates:
         \begin{center}
@@ -67,7 +67,62 @@
         \end{center}
         As the optimized extrinsics also showed little to no improvement to the 3D reconstruction we analyzed the quality of our depth estimates.
     \section{Consistent Depth}
-        \begin{itemize}
-            \item maybe lead with a screenshot from the 3D reconstruction and a relevant frame from the video that shows, that corners are rounded and the depth is obviously flawed! (protein-tuete, ecken, meine wand die auch omegarund ist)
-            \item describe how we compared the "consistent depth depth" to the ground truth --> leads to error heatmap that shows how off the depth estimate is
-        \end{itemize}
+        Once we started testing on the ground truth dataset we were able to compare all possible combinations of extrinsics and depth maps and compare.
+        Figure~\ref{sfig:corner} displays the difference between the ground truth depth and the depth map from \citetitle{luo2020consistent}.
+        We overlayed a full reconstruction of the ground truth with one image using our depth map.
+        We can clearly observe the left and upper corner of the room being slightly curved, but very far from the 90\textdegree angle that they are supposed to form.
+        Comparing figures~\ref{sfig:depth_ours}~\&~\ref{sfig:depth_truth}, we can observe that our depth estimate simply does not come close to the ground truth.\\
+        \begin{figure}[ht!]
+            \centering
+            \begin{subfigure}[b]{.49\textwidth}
+                \includegraphics[width=\textwidth]{images/depth_corner}
+                \caption{One frame from our depth is overlayed with a full reconstruction using the ground truth depth, corners seem round with our depth.}
+                \label{sfig:corner}
+            \end{subfigure}\\
+            \begin{subfigure}[b]{.49\textwidth}
+                \includegraphics[width=\textwidth]{images/depth_ours}
+                \caption{Single frame reconstruction of one of the frames towards the end of the video using our depth.}
+                \label{sfig:depth_ours}
+            \end{subfigure}
+            \begin{subfigure}[b]{.49\textwidth}
+                \includegraphics[width=\textwidth]{images/depth_truth}
+                \caption{Single frame reconstruction of one of the frames towards the end of the video using the ground truth depth.}
+                \label{sfig:depth_truth}
+            \end{subfigure}
+            \caption{Visual comparison between our depth and the ground truth. In \ref{sfig:depth_ours}~\&~\ref{sfig:depth_truth} only single frames were used for the reconstruction.}
+            \label{fig:depth_comparisson}
+        \end{figure}\\
+        \newpage
+        We also investigated the depth discrepancy by producing videos for both depths and comparing them at specific times.
+        For interesting frames we compared them and visualizing the error as a heatmap.
+        This endeavor required us to scale one of the depth maps to fit with the other.
+        We tried to minimize the sum, median, and mean of the error in an attempt to find the best scale to use.
+        Two error heatmaps and their respective RGB frames are shown in figure~\ref{fig:depth_error}.
+        We chose a diverging colormap to visualize if the error is negative or positve.
+        Blue indicates that our depth is lower than the ground truth, red indicates that our depth is higher.
+        \begin{figure}[ht]
+            \centering
+            \begin{subfigure}[b]{.48\textwidth}
+                \includegraphics[width=\textwidth]{images/frame_000139.png}
+                \caption{RGB image of frame 139 of lrkt2.}
+                \label{sfig:frame1}
+            \end{subfigure}
+            \begin{subfigure}[b]{.48\textwidth}
+                \includegraphics[width=\textwidth]{images/error_000139.png}
+                \caption{depth error for frame 139 of lrkt2.}
+                \label{sfig:error1}
+            \end{subfigure}\\
+            \begin{subfigure}[b]{.48\textwidth}
+                \includegraphics[width=\textwidth]{images/frame_000800.png}
+                \caption{RGB image of frame 800 of lrkt2.}
+                \label{sfig:frame2}
+            \end{subfigure}
+            \begin{subfigure}[b]{.48\textwidth}
+                \includegraphics[width=\textwidth]{images/error_000800.png}
+                \caption{depth error for frame 800 of lrkt2.}
+                \label{sfig:error2}
+            \end{subfigure}
+            \caption{On the right side we visualize the error between our depth and the ground truth. Blue indicates that the area was estimated to be closer than they are, red indicates the area was estimated to be further away than it really is. The left side simply displays the corresponding RGB images.}
+            \label{fig:depth_error}
+        \end{figure}
+        
