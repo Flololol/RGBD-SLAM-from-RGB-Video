@@ -8,16 +8,16 @@ from error_extrinsics import ICP
 from error_depth import DepthScale
 
 peter = True
-use_extr = 'our'
+# use_extr = 'our'
 # use_extr = 'opt'
-# use_extr = 'tru'
+use_extr = 'tru'
 use_depth = 'our'
-# use_depth = 'tru'
-img1_idx = 0
+use_depth = 'tru'
+img1_idx = 82
 size = (640, 480)
 CUT = False
 CUT_N = 1
-stride = 1
+stride = 10
 
 if __name__ == "__main__":
     eps_euler = .01 #x degree step size in terms of rotation
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     base_dir = "/home/flo/Documents/3DCVProject/RGBD-SLAM/room/"
     depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
     if peter:
-        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/room01/"
+        base_dir = "/home/noxx/Documents/projects/consistent_depth/results/lr_kt2_flo/"
         depth_dir = base_dir+"R_hierarchical2_mc/B0.1_R1.0_PL1-0_LR0.0004_BS3_Oadam/"
 
     # color_dir = base_dir+"color_down_png/"

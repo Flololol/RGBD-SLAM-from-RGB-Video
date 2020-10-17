@@ -9,8 +9,8 @@ from scipy.spatial.transform import Rotation as R
 peter = True
 size = (640, 480)
 use_opt = False
-global_align = True
-stride = 20
+global_align = False
+stride = 1
 
 class ICP:
     def __init__(self, source, target):
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     # ax.quiver(cam_loc[:,0], cam_loc[:,1], cam_loc[:,2],point_cloud[:,0],point_cloud[:,1],point_cloud[:,2], length=1.0)
     ax.set_xlim([-1, 2])
-    ax.set_ylim([-2, 0])
+    ax.set_ylim([-1, 1])
     ax.set_zlim([-2, 1])
     ax.set_xlabel("X axis")
     ax.set_ylabel("Y axis")
