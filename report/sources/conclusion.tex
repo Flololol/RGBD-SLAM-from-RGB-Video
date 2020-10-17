@@ -1,7 +1,7 @@
 \chapter{Conclusion}
-    Summing up our insight we accumulated over the past weeks, we identified two main possibilities for the error in our pipeline, leading to the worse results after optimization. %den muss man vllt nochmal ändern :D
+    Combining the insight we accumulated over the past weeks, we identified two main possibilities for the error in our pipeline, leading to slightly worse results after our pose optimization.
     First, we might have done an amazing job with the minimization of the energy, but the faulty refined depth maps are so far off from the truth, that no optimizer in the world could fit that.
-    We would have to investigate more into why these holes occur and how we can make the depth maps even more consistent.
+    We would have to investigate more into why these holes occur and how we can make the depth maps more consistent.
     The second and maybe more likely possiblity is that we did not employ pixel consistency checks like reprojection error and normal deviation to account for occlusion and other sources of error.
     We simply checked if the transformed pixel lands in the target image and realized too late that the optical flow masks computed during the \citetitle{luo2020consistent} step could yield better results for this problem.
     Also our minimization approach is probably too unconstrained and has no real gradient for the optimizer, which makes it a difficult challenge.
