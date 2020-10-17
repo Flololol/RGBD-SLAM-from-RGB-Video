@@ -138,8 +138,4 @@ if __name__ == "__main__":
     mesh = volume.extract_triangle_mesh()
     mesh.compute_vertex_normals()
     o3d.io.write_triangle_mesh("mesh.ply", mesh)
-    # o3d.visualization.draw_geometries([mesh])
-    #ptc = volume.extract_voxel_point_cloud()
-    #o3d.io.write_point_cloud("cld.pcd", ptc)
-    #o3d.visualization.draw_geometries([mesh], front=[0.5297, -0.1873, -0.8272], lookat=[2.0712, 2.0312, 1.7251], up=[-0.0558, -0.9809, 0.1864], zoom=0.47)
     print("mesh.ply done.")

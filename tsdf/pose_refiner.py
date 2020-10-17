@@ -39,7 +39,6 @@ class pose_refiner:
             translation = COL.dot(self.extrinsics[i,:,3])/self.scale
             self.extrinsics[i,:,3] = translation
             self.extrinsics_euler[i] = np.append(euler, translation)
-            # self.extrinsics[i] = np.linalg.inv(self.extrinsics[i]) # DONT DO THIS PART! not needed here!
 
         self.iter = 0
         self.pair_mat = None
@@ -205,12 +204,6 @@ class pose_refiner:
     def photo_energy(self, i, j, py, px, dim2, dim2_int):
         left = self.luminance[i, py, px]
 
-        # dim3 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        # dim3 = dim3[:-1]
-        # dim2 = self.intrinsics.dot(dim3)
-        # dim2 = dim2 / dim2[-1]
-        # dim2 = dim2[:-1]
-
         right = self.luminance[j, dim2_int[1], dim2_int[0]]
 
         energy = np.sum((left - right)**2)
@@ -218,12 +211,6 @@ class pose_refiner:
 
     def geo_energy(self, i, j, py, px, Ti, Tj, dik, dim2, dim2_int):
         normal = self.normals[i, py, px]
-
-        # dim3_2 = np.linalg.inv(Tj).dot(Ti.dot(dik))
-        # dim3_2 = dim3_2[:-1]
-        # dim2 = self.intrinsics.dot(dim3_2)
-        # dim2 = dim2 / dim2[-1]
-        # dim2 = dim2[:-1]
 
         depth_probed_j = np.array([dim2_int[0], dim2_int[1], self.depth[j, dim2_int[1], dim2_int[0]]])
         dim3_2 = np.linalg.inv(self.intrinsics).dot(depth_probed_j)
@@ -256,39 +243,6 @@ class pose_refiner:
                 egeo[self.size[0]*py+px] = self.geo_energy(i, j, py, px, Ti, Tj, dik, dim2, dim2_int)
 
         return (egeo, ephoto, valid)
-    
-    # def total_energy(self, extr):
-    #     print("function call!")
-    #     extr = extr.reshape(self.extrinsics_euler.shape)
-    #     wgeo = wphoto = 0.5
-    #     egeo = ephoto = valid = 0
-    #     for i in tqdm(range(self.N)):
-    #         Ti = np.vstack((extr[i], np.array([0,0,0,1])))
-
-    #         diks = (self.diks * self.depth[i, :, :, np.newaxis])
-    #         Tiks = diks.reshape(-1,3)
-    #         tmp = np.ones((Tiks.shape[0]))
-    #         Tiks = np.concatenate((Tiks, tmp[:,np.newaxis]), axis=1)
-    #         Tiks = np.tensordot(Ti,Tiks,axes=([1],[1])).T
-
-    #         for j in range(self.N):
-    #             if self.pair_mat[i,j] != 1:
-    #                 continue
-    #             Tj = np.vstack((extr[j], np.array([0,0,0,1])))
-    #             Tj_inv = np.linalg.inv(Tj)
-                
-    #             djks = np.tensordot(Tj_inv, Tiks, axes=([1],[1])).T
-    #             djks = np.tensordot(self.intrinsics, djks[:,:3], axes=([1],[1])).T
-    #             djks = (djks / djks[:,2][:,np.newaxis]).reshape(self.size[1],self.size[0],3) #pixel coordinates
-    #             egeo_n, ephoto_n, valid_n = self.total_energy_pair([i, j, Ti, Tj, diks, djks])
-    #             egeo += egeo_n
-    #             ephoto += ephoto_n
-    #             valid += valid_n
-
-    #     egeo /= valid
-    #     ephoto /= valid
-    #     total = wphoto * ephoto + wgeo * egeo
-    #     return total
     
     def transformation_mt(self, inp):
         extr, i = inp
@@ -345,8 +299,6 @@ class pose_refiner:
         if use_median:
             for i in range(self.pair_mat.shape[0]):
                 if np.sum(valid[i]) > 0:
-                    # print(np.median(energies[i,0,np.where(valid[i]==1)]))
-                    # print(np.median(energies[i,1,np.where(valid[i]==1)]))
                     egeo += np.median(energies[i,0,np.where(valid[i]==1)])
                     ephoto += np.median(energies[i,1,np.where(valid[i]==1)])
             egeo /= self.pair_mat.shape[0]

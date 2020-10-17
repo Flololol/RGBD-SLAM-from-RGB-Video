@@ -73,11 +73,6 @@ if __name__ == "__main__":
 
     dptScale = DepthScale(refiner)
 
-    # x = np.linspace(23000,23500,1000)
-    # y = [depth_error(xs, refiner.depth[0], refiner.depth_truth[0]) for xs in x]
-    # plt.plot(x, y)
-    # plt.show()
-
     if single_img:
         best_scale = dptScale.fit(img_id)
         plt.imshow(refiner.depth[img_id], cmap='plasma')
