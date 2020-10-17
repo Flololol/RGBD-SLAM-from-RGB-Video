@@ -128,13 +128,14 @@
         While this is a very inefficient and slow process, it manages to obtain a more fitting set of extrinsics according to our cost function.
         We still took several measures to reduce the computational complexity as much as possible.
         We precompute the initial positions $d_{i,k}$ of each pixel in camera space, since they are identical for each image, before being scaled with the individual depth.
-        For each image pair we then just multiply the depth map with each $d_{i,k}$, compute the entire transformation
+        For each image pair we then just multiply the depth map with each $d_{i,k}$, computing the entire transformation
         \begin{equation}
             T_{ijK} = K(Tj^{-1}Ti),
         \end{equation}
         and finally perform a single vectorized tensor dot product of the transformation with the scaled vectors.
-        As our final measure, we convert the $3\times3$ rotation for the optimizer to Euler angles, since this greatly reduces the dimensionality of the problem to be solved, leaving 6 unknowns for each image.
-        We multithreaded the energy computation to make use of our 12 core processors.
+        As our final measure, we convert the $3\times3$ rotation for the optimizer to Euler angles in order to greatly reduce the dimensionality of the problem to be solved, leaving 6 unknowns for each image.
+        We also implemented multithreading for the energy computation to exploit the benefits of multicore processors.
+        This considerably accelerated the function calls made by the optimizer.
     \newpage
     \section{3D Reconstruction}
         For creating an actually explorable 3D reconstruction from our world positions and depth estimates, we tried several approaches and ended up using Open3D.
