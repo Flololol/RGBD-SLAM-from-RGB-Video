@@ -1,4 +1,4 @@
-\chapter{Results}
+\chapter{Results}\label{seq:results}
     In this chapter we present our results for the implementation of our pose estimation and the depth map acquired from \citetitle{luo2020consistent}~\cite{luo2020consistent}.
     We try to pinpoint the problems we encountered in our pipeline by comparing our results to the synthetic dataset 'lr kt2' from \citetitle{handa:etal:ICRA2014}~\cite{handa:etal:ICRA2014}.
     \section{pose optimization}
@@ -67,7 +67,7 @@
         \end{center}
         As the optimized extrinsics also showed little to no improvement to the 3D reconstruction we analyzed the quality of our depth estimates.
     \section{Consistent Depth}
-        Once we started testing on the ground truth dataset we were able to compare all possible combinations of extrinsics and depth maps and compare.
+        Once we started testing on the ground truth dataset we were able to compare all possible combinations of extrinsics and depth maps.
         Figure~\ref{sfig:corner} displays the difference between the ground truth depth and the depth map from \citetitle{luo2020consistent}.
         We overlayed a full reconstruction of the ground truth with one image using our depth map.
         We can clearly observe the left and upper corner of the room being slightly curved, but very far from the 90\textdegree angle that they are supposed to form.

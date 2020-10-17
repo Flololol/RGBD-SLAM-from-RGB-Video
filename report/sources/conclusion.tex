@@ -5,7 +5,9 @@
     The second and maybe more likely possiblity is that we did not employ pixel consistency checks like reprojection error and normal deviation to account for occlusion and other sources of error.
     We simply checked if the transformed pixel lands in the target image and realized too late that the optical flow masks computed during the \citetitle{luo2020consistent} step could yield better results for this problem.
     Also our minimization approach is probably too unconstrained and has no real gradient for the optimizer, which makes it a difficult challenge.
-    A major part of the bundle fusion paper is their online nonlinear GPU solver for this problem with an intelligent gradient estimation that we simply cannot compete with.
+    A major part of the bundle fusion paper is their online nonlinear GPU solver written for this exact problem with an intelligent gradient estimation that we simply cannot compete with.
+    The reality is probably somewhere inbetween. 
+    The refined depth maps are quite far from the ground truth as shown in Section~\ref{seq:results} and the energy minimization is a complex problem requiring every optimization possible.
 
     \todo{\\our pose optimization can't improve the extrinsics when it is so heavily based on the depth that is so shit..}
     conclusion may be, that the optimization just requires all the things we skipped.. better solver, better jacobian, better outlier filtering, ..\\
